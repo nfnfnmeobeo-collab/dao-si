@@ -1,7 +1,7 @@
 {
   "name": "daosi-bot",
   "version": "1.0.0",
-  "description": "Bot Discord chủ đề đạo sĩ: tu luyện, độ kiếp, gieo quẻ",
+  "description": "Bot Discord Đạo Sĩ - Ma - Cương Thi: bùa chú, nghĩa địa, trừ tà",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
