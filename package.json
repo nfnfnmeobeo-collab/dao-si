@@ -1,13 +1,12 @@
 {
-  "name": "daosi-bot",
-  "version": "1.0.0",
-  "description": "Bot Discord Đạo Sĩ - Ma - Cương Thi: bùa chú, nghĩa địa, trừ tà",
+  "name": "dao-si-bot",
+  "version": "3.0.0",
+  "description": "Bot RPG Discord Đạo Sĩ trừ tà - lấy cảm hứng từ phim Cương Thi Tiên Sinh",
   "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
+  "scripts": { "start": "node index.js" },
+  "engines": { "node": ">=18" },
   "dependencies": {
-    "discord.js": "^14.16.0",
+    "discord.js": "^14.16.3",
     "dotenv": "^16.4.5"
   }
 }
