@@ -1,6 +1,7 @@
-// ☯️ ĐẠO SĨ BOT v3.0 – Bot RPG Discord lấy cảm hứng từ phim "Cương Thi Tiên Sinh"
-// Mới: đồ riêng từng môn phái (vũ khí/giáp/PHÁP BẢO/BÙA HỘ THÂN), cường hóa +15 có tỉ lệ thất bại & SÉT ĐÁNH,
-//      độ THIÊN KIẾP để đột phá cảnh giới, 3 tuyệt kỹ mỗi phái, phù chú dùng trong trận, 2 khu vực mới.
+// ☯️ ĐẠO SĨ BOT v3.2 – Bot RPG Discord lấy cảm hứng từ phim "Cương Thi Tiên Sinh"
+// Nhân vật & đồ: 3 môn phái, đồ riêng (vũ khí/giáp/pháp bảo/bùa), cường hóa +15 có sét đánh, khảm ngọc, độ thiên kiếp
+// Đồng hành & xã hội: đệ tử (Thu Sinh, Văn Tài...), võ đài PvP, tông môn, chợ người chơi, boss thế giới
+// Hoạt động: săn 6 khu vực, Trấn Yêu Tháp, thành tựu & danh hiệu, sự kiện ngẫu nhiên, nhiệm vụ & điểm danh
 // Yêu cầu: Node.js 18+ và discord.js v14
 
 require('dotenv').config();
@@ -57,7 +58,7 @@ const CLASSES = {
   phuchu: {
     name: 'Phù Chú Sư', emoji: '📜',
     desc: 'Linh lực dồi dào, phù chú xuyên giáp. Máu giấy nhưng sát thương khủng.',
-    hp: 80, mp: 80, atk: 8, def: 3, g: { hp: 12, mp: 10, atk: 2.2, def: 0.8 },
+    hp: 85, mp: 80, atk: 8, def: 4, g: { hp: 14, mp: 10, atk: 2.3, def: 1.1 },
     skills: [
       { name: 'Cửu Long Phù Ấn', lv: 1, cost: 25, mult: 2.6, ignoreDef: true },
       { name: 'Liệt Hỏa Phù', lv: 8, cost: 40, mult: 1.6, burn: { atkPct: 0.35, t: 3 } },
@@ -196,9 +197,62 @@ Object.assign(RECIPES, {
   longhongocboi: { need: { batquaikinh: 1, loithach: 6, huyetngoc: 4 }, out: 1, gold: 5000 },
 });
 
+// ── Bảo ngọc (khảm vào trang bị) ──
+const GEM_KINDS = {
+  hong:  ['Hồng Ngọc', '🔴', 'atk', [6, 14, 28]], lam: ['Lam Ngọc', '🔵', 'hp', [40, 100, 220]],
+  luc:   ['Lục Ngọc', '🟢', 'def', [4, 10, 20]],  tu:  ['Tử Ngọc', '🟣', 'mp', [20, 50, 110]],
+  hoang: ['Hoàng Ngọc', '🟡', 'crit', [0.02, 0.04, 0.07]], loi: ['Lôi Ngọc', '⚡', 'thunder', [0.04, 0.08, 0.14]],
+};
+const GRADES = ['Sơ cấp', 'Trung cấp', 'Thượng cấp'];
+for (const [k, [name, emoji, stat, vals]] of Object.entries(GEM_KINDS)) {
+  vals.forEach((v, g) => {
+    ITEMS[`${k}${g + 1}`] = { name: `${name} (${GRADES[g]})`, emoji, type: 'gem', gem: { [stat]: v }, grade: g + 1, price: [400, 1500, 5000][g], lv: 1, shop: g === 0 };
+    if (g < 2) RECIPES[`${k}${g + 2}`] = { need: { [`${k}${g + 1}`]: 3 }, out: 1, gold: [200, 800][g] };
+  });
+}
+
+// ── Đệ tử (nhân vật trong phim) ──
+const PETS = {
+  vantai:       { name: 'Văn Tài', emoji: '🧑‍🌾', rar: 'R', desc: 'Hậu đậu nhưng 30% lao ra đỡ đòn thay bạn', guard: 0.3 },
+  thusinh:      { name: 'Thu Sinh', emoji: '🧑‍🎓', rar: 'R', desc: 'Ra đòn phụ mỗi lượt (50% công)', atk: 0.5 },
+  dinhdinh:     { name: 'Nhậm Đình Đình', emoji: '👩', rar: 'SR', desc: 'Hồi 6% HP mỗi lượt', heal: 0.06 },
+  tieucuongthi: { name: 'Tiểu Cương Thi', emoji: '🧟', rar: 'SR', desc: 'Cắn 70% công, 15% gây choáng', atk: 0.7, stun: 0.15 },
+  cuuvihoco:    { name: 'Cửu Vĩ Hồ Con', emoji: '🦊', rar: 'SSR', desc: 'Hồ hỏa 90% công xuyên giáp, hồi 5 LL/lượt', atk: 0.9, pierce: true, mana: 5 },
+  loilongtu:    { name: 'Lôi Long Tử', emoji: '🐲', rar: 'SSR', desc: 'Sét 80% công, 20% choáng, giảm 8% sát thương', atk: 0.8, stun: 0.2, reduce: 0.08 },
+};
+const PET_COST = 1000;
+const petScale = (star) => 1 + 0.2 * (star - 1);
+
+// ── Thành tựu & danh hiệu (danh hiệu cộng % chỉ số) ──
+const ACH = [
+  { id: 'kill100', name: 'Thợ Săn Yêu', desc: 'Diệt 100 yêu ma', test: (p) => p.kills >= 100, title: { atk: 0.01 }, gold: 500 },
+  { id: 'kill1000', name: 'Sát Yêu Giả', desc: 'Diệt 1.000 yêu ma', test: (p) => p.kills >= 1000, title: { atk: 0.03 }, gold: 5000 },
+  { id: 'boss10', name: 'Phá Trận Tiên Phong', desc: 'Hạ 10 boss', test: (p) => p.bossKills >= 10, title: { def: 0.02 }, gold: 2000 },
+  { id: 'boss50', name: 'Boss Sát Thủ', desc: 'Hạ 50 boss', test: (p) => p.bossKills >= 50, title: { atk: 0.02, def: 0.02 }, gold: 10000 },
+  { id: 'kiep1', name: 'Độ Kiếp Giả', desc: 'Vượt thiên kiếp lần đầu', test: (p) => p.kiepDone >= 1, title: { hp: 0.03 }, gold: 3000 },
+  { id: 'kiep4', name: 'Lôi Kiếp Chân Nhân', desc: 'Vượt 4 lần thiên kiếp', test: (p) => p.kiepDone >= 4, title: { hp: 0.05, def: 0.02 }, gold: 20000 },
+  { id: 'realm2', name: 'Kết Đan Chân Nhân', desc: 'Đạt cảnh giới Kết Đan', test: (p) => p.realm >= 2, title: { hp: 0.03 }, gold: 8000 },
+  { id: 'enh10', name: 'Luyện Khí Sư', desc: 'Cường hóa một món lên +10', test: (p) => Math.max(0, ...Object.values(p.enh)) >= 10, title: { atk: 0.02 }, gold: 5000 },
+  { id: 'enh15', name: 'Thần Tượng Cường Hóa', desc: 'Cường hóa một món lên +15', test: (p) => Math.max(0, ...Object.values(p.enh)) >= 15, title: { atk: 0.05 }, gold: 30000 },
+  { id: 'honor200', name: 'Võ Đài Anh Hùng', desc: 'Đạt 200 danh vọng', test: (p) => p.honor >= 200, title: { atk: 0.03, def: 0.03 }, gold: 5000 },
+  { id: 'duel20', name: 'Bách Chiến Bách Thắng', desc: 'Thắng 20 trận võ đài', test: (p) => p.duelWins >= 20, title: { atk: 0.03 }, gold: 8000 },
+  { id: 'pet3', name: 'Sư Phụ Đông Đồ', desc: 'Sưu tập 3 đệ tử', test: (p) => Object.keys(p.pets).length >= 3, title: { hp: 0.02 }, gold: 2000 },
+  { id: 'pet6', name: 'Chưởng Môn Đại Đồ', desc: 'Sưu tập đủ 6 đệ tử', test: (p) => Object.keys(p.pets).length >= 6, title: { hp: 0.04, atk: 0.02 }, gold: 15000 },
+  { id: 'tower20', name: 'Khách Trấn Yêu Tháp', desc: 'Leo đến tầng 20', test: (p) => p.towerBest >= 20, title: { def: 0.02 }, gold: 5000 },
+  { id: 'tower50', name: 'Tháp Chủ', desc: 'Leo đến tầng 50', test: (p) => p.towerBest >= 50, title: { atk: 0.04, def: 0.04 }, gold: 30000 },
+  { id: 'wb1', name: 'Dũng Sĩ Đại Chiến', desc: 'Tham gia đánh Boss Thế Giới', test: (p) => p.wbHits >= 1, title: { atk: 0.01 }, gold: 1000 },
+  { id: 'wbkill', name: 'Kẻ Kết Liễu', desc: 'Tung đòn kết liễu Boss Thế Giới', test: (p) => p.wbKills >= 1, title: { atk: 0.03 }, gold: 10000 },
+  { id: 'guild', name: 'Đệ Tử Tông Môn', desc: 'Gia nhập một tông môn', test: (p) => !!p.guild, title: { hp: 0.01 }, gold: 500 },
+  { id: 'rich', name: 'Đại Gia Mao Sơn', desc: 'Sở hữu 100.000 vàng', test: (p) => p.gold >= 100000, title: { def: 0.02 }, gold: 0 },
+];
+const titleBonus = (p) => (p.title && p.ach?.[p.title] ? ACH.find((a) => a.id === p.title)?.title || {} : {});
+const titleName = (p) => (p.title && p.ach?.[p.title] ? ACH.find((a) => a.id === p.title)?.name : null);
+const GUILD_BONUS = 0.015, GUILD_MAX_LV = 10, GUILD_MAX_MEMBERS = 30, GUILD_COST = 5000;
+const guildBonus = (p) => { const g = p.guild && db.guilds?.[p.guild]; return g ? GUILD_BONUS * g.lv : 0; };
+
 const TYPE_INFO = {
   weapon: ['⚔️', 'Vũ khí'], armor: ['🥋', 'Giáp / Đạo bào'], treasure: ['🔱', 'Pháp bảo'], charm: ['🧧', 'Bùa hộ thân'],
-  acc: ['📿', 'Pháp khí'], potion: ['💊', 'Đan dược'], talisman: ['📜', 'Phù chú & trừ tà'], material: ['🧪', 'Nguyên liệu'],
+  acc: ['📿', 'Pháp khí'], gem: ['💎', 'Bảo ngọc'], potion: ['💊', 'Đan dược'], talisman: ['📜', 'Phù chú & trừ tà'], material: ['🧪', 'Nguyên liệu'],
 };
 const SLOT_OF = { weapon: 'weapon', armor: 'armor', treasure: 'treasure', charm: 'charm', acc: 'accessory' };
 const SLOT_NAME = { weapon: '⚔️ Vũ khí', armor: '🥋 Giáp', treasure: '🔱 Pháp bảo', charm: '🧧 Bùa hộ thân', accessory: '📿 Pháp khí' };
@@ -264,8 +318,9 @@ const MAPS = {
 
 /* ═══════════════════════════ LƯU TRỮ ═══════════════════════════ */
 const DB_FILE = path.join(__dirname, 'data.json');
-let db = { players: {} };
+let db = { players: {}, guilds: {}, market: { next: 1, list: {} }, wb: { active: false, endedAt: 0 } };
 try { db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); } catch { /* lần chạy đầu */ }
+db.players ??= {}; db.guilds ??= {}; db.market ??= { next: 1, list: {} }; db.wb ??= { active: false, endedAt: 0 };
 let saveTimer = null;
 function save() {
   clearTimeout(saveTimer);
@@ -277,7 +332,7 @@ process.on('SIGTERM', () => { saveNow(); process.exit(0); });
 
 // Nâng cấp dữ liệu cũ (v2 → v3)
 function migrate(p) {
-  p.enh ??= {}; p.lastKiep ??= 0; p.kiepDone ??= 0;
+  p.enh ??= {}; p.lastKiep ??= 0; p.kiepDone ??= 0; p.gems ??= {}; p.pets ??= {}; p.pet ??= null; p.honor ??= 0; p.pity ??= 0; p.lastDuel ??= 0; p.title ??= null; p.ach ??= {}; p.guild ??= null; p.contrib ??= 0; p.towerBest ??= 0; p.duelWins ??= 0; p.wbHits ??= 0; p.wbKills ??= 0; p.lastWb ??= 0;
   p.realm ??= Math.min(5, Math.floor(p.level / 10));
   p.equip.treasure ??= null; p.equip.charm ??= null;
   for (const id of Object.keys(p.inv)) if (!ITEMS[id]) delete p.inv[id];
@@ -299,6 +354,16 @@ const addItem = (p, id, n = 1) => { p.inv[id] = count(p, id) + n; };
 function removeItem(p, id, n = 1) { p.inv[id] = count(p, id) - n; if (p.inv[id] <= 0) delete p.inv[id]; }
 const owns = (p, id) => count(p, id) > 0 || Object.values(p.equip).includes(id);
 const canEnhance = (id) => ITEMS[id] && SLOT_OF[ITEMS[id].type];
+const socketsOf = (id) => (ITEMS[id].tier !== undefined ? Math.min(3, 1 + Math.floor(ITEMS[id].tier / 2)) : 1);
+function gemStats(p, id) {
+  const r = { atk: 0, def: 0, hp: 0, mp: 0, perk: {} };
+  for (const gid of (p.gems?.[id] || [])) {
+    for (const [k, v] of Object.entries(ITEMS[gid].gem)) { if (k in r && k !== 'perk') r[k] += v; else r.perk[k] = (r.perk[k] || 0) + v; }
+  }
+  return r;
+}
+function releaseGems(p, id) { for (const g of (p.gems?.[id] || [])) addItem(p, g); if (p.gems) delete p.gems[id]; }
+const gemIcons = (p, id) => { const a = p.gems?.[id] || []; return ` ${a.map((g) => ITEMS[g].emoji).join('')}${'⬜'.repeat(Math.max(0, socketsOf(id) - a.length))}`; };
 
 function stats(p) {
   const c = CLASSES[p.cls], l = p.level - 1, rm = 1 + 0.1 * p.realm; // mỗi cảnh giới +10% chỉ số gốc
@@ -311,7 +376,12 @@ function stats(p) {
     const it = ITEMS[id], m = 1 + 0.12 * enhOf(p, id);
     s.atk += Math.round((it.atk || 0) * m); s.def += Math.round((it.def || 0) * m);
     s.maxHp += Math.round((it.hp || 0) * m); s.maxMp += Math.round((it.mp || 0) * m);
+    const gb = gemStats(p, id);
+    s.atk += gb.atk; s.def += gb.def; s.maxHp += gb.hp; s.maxMp += gb.mp;
   }
+  const tb = titleBonus(p), gbn = guildBonus(p);
+  s.atk = Math.round(s.atk * (1 + (tb.atk || 0) + gbn)); s.def = Math.round(s.def * (1 + (tb.def || 0) + gbn));
+  s.maxHp = Math.round(s.maxHp * (1 + (tb.hp || 0) + gbn));
   return s;
 }
 
@@ -319,10 +389,13 @@ function stats(p) {
 function perks(p) {
   const r = { crit: 0, dodge: 0, reduce: 0, lifesteal: 0, thorns: 0, stun: 0, thunder: 0, regen: 0 };
   for (const id of Object.values(p.equip)) {
-    const pk = id && ITEMS[id].perk;
-    if (!pk) continue;
-    const k = 1 + 0.05 * enhOf(p, id);
-    for (const [key, v] of Object.entries(pk)) r[key] += key === 'regen' ? Math.round(v * k) : v * k;
+    if (!id) continue;
+    const pk = ITEMS[id].perk;
+    if (pk) {
+      const k = 1 + 0.05 * enhOf(p, id);
+      for (const [key, v] of Object.entries(pk)) r[key] += key === 'regen' ? Math.round(v * k) : v * k;
+    }
+    for (const [key, v] of Object.entries(gemStats(p, id).perk)) r[key] += v;
   }
   r.dodge = Math.min(r.dodge, 0.4); r.reduce = Math.min(r.reduce, 0.5);
   return r;
@@ -343,6 +416,7 @@ function statText(it, L = 0) {
   const u = it.use || {};
   if (u.heal) parts.push(`hồi ${u.heal} HP`);
   if (u.mana) parts.push(`hồi ${u.mana} LL`);
+  if (it.gem) for (const [k, v] of Object.entries(it.gem)) parts.push(PERK_TEXT[k] ? PERK_TEXT[k](v) : `+${v} ${{ atk: 'CÔNG', def: 'THỦ', hp: 'HP', mp: 'LL' }[k]}`);
   if (it.perk) parts.push(perkText(it.perk));
   if (it.desc) parts.push(it.desc);
   return parts.join(', ');
@@ -353,7 +427,7 @@ function newPlayer(cls, name) {
     name, cls, level: 1, exp: 0, realm: 0, gold: 200,
     inv: { linhdan: 3, phutranthi: 2, gaoep: 2 },
     equip: { weapon: null, armor: null, treasure: null, charm: null, accessory: null },
-    enh: {}, hp: 0, mp: 0, kills: 0, deaths: 0, bossKills: 0, kiepDone: 0,
+    enh: {}, gems: {}, pets: {}, pet: null, honor: 0, pity: 0, lastDuel: 0, title: null, ach: {}, guild: null, contrib: 0, towerBest: 0, duelWins: 0, wbHits: 0, wbKills: 0, lastWb: 0, hp: 0, mp: 0, kills: 0, deaths: 0, bossKills: 0, kiepDone: 0,
     streak: 0, lastDaily: 0, lastMeditate: 0, lastKiep: 0, quest: null,
   };
   const s = stats(p); p.hp = s.maxHp; p.mp = s.maxMp;
@@ -419,8 +493,8 @@ function fightView(uid, p, f) {
     .setTitle(`${f.boss ? '👑 BOSS • ' : ''}${m.emoji} ${m.name} ${status}`)
     .setDescription(f.log.join('\n'))
     .addFields(
-      { name: `Yêu ma • ${MAPS[f.map].emoji} ${MAPS[f.map].name}`, value: `${bar(f.mHp, m.hp)} ${fmt(Math.max(0, f.mHp))}/${fmt(m.hp)} HP`, inline: false },
-      { name: `${p.name} • Lượt ${f.turn} ${f.shield?.t > 0 ? '🛡️' : ''}`, value: `❤️ ${bar(p.hp, s.maxHp)} ${fmt(p.hp)}/${fmt(s.maxHp)}\n🔷 ${bar(p.mp, s.maxMp)} ${fmt(p.mp)}/${fmt(s.maxMp)}`, inline: false },
+      { name: `Yêu ma • ${mapLabel(f)}`, value: `${bar(f.mHp, m.hp)} ${fmt(Math.max(0, f.mHp))}/${fmt(m.hp)} HP`, inline: false },
+      { name: `${p.name}${p.pet && p.pets[p.pet] ? ` & ${PETS[p.pet].emoji}${PETS[p.pet].name}` : ''} • Lượt ${f.turn} ${f.shield?.t > 0 ? '🛡️' : ''}`, value: `❤️ ${bar(p.hp, s.maxHp)} ${fmt(p.hp)}/${fmt(s.maxHp)}\n🔷 ${bar(p.mp, s.maxMp)} ${fmt(p.mp)}/${fmt(s.maxMp)}`, inline: false },
     );
   return { content: '', embeds: [e], components: [row1, row(menu)] };
 }
@@ -444,6 +518,7 @@ function winRewards(p, f) {
   const m = f.m, gold = rand(m.gold[0], m.gold[1]);
   const lines = [`💰 +${fmt(gold)} vàng`, `✨ +${fmt(m.exp)} EXP`];
   p.gold += gold; p.kills++;
+  if (f.tower) p.towerBest = Math.max(p.towerBest, f.floor);
   if (f.boss) p.bossKills++;
   const drops = [...m.drops, ['linhthach', f.boss ? 1 : 0.12, f.boss ? 3 : 1]];
   for (const [key, chance, max = 1] of drops) {
@@ -453,6 +528,12 @@ function winRewards(p, f) {
     const n = max > 1 ? rand(1, max) : 1;
     addItem(p, id, n);
     lines.push(`🎁 Nhặt được ${label(id)}${n > 1 ? ` x${n}` : ''}`);
+  }
+  if (!f.tower && Math.random() < 0.1) lines.push(randomEvent(p));
+  if (Math.random() < (f.boss ? 0.35 : 0.06)) {
+    const grade = f.boss ? (Math.random() < 0.15 ? 3 : Math.random() < 0.5 ? 2 : 1) : (Math.random() < 0.08 ? 2 : 1);
+    const gid = `${pick(Object.keys(GEM_KINDS))}${grade}`;
+    addItem(p, gid); lines.push(`🎁 Nhặt được bảo ngọc ${label(gid)}`);
   }
   const ups = gainExp(p, m.exp);
   if (ups) lines.push(`🎉 **LÊN CẤP ${p.level}!** HP và linh lực hồi đầy.`);
@@ -467,6 +548,7 @@ function winRewards(p, f) {
 function act(p, f, action) {
   const s = stats(p), pk = perks(p), m = f.m, cls = CLASSES[p.cls], log = [];
   const critC = 0.15 + pk.crit;
+  const pet = p.pet && p.pets?.[p.pet] ? { ...PETS[p.pet], star: p.pets[p.pet].star } : null;
   const heal = (n) => { const b = p.hp; p.hp = Math.min(s.maxHp, p.hp + n); return p.hp - b; };
   const hit = (mult = 1, ignoreDef = false, ls = 0) => {
     const r = calcDmg(s.atk, m.def, { mult, ignoreDef, critC });
@@ -533,6 +615,20 @@ function act(p, f, action) {
 
   if (winNow()) return {};
 
+  // Đệ tử hỗ trợ
+  if (pet) {
+    const sc = petScale(pet.star);
+    if (pet.atk) {
+      const d = Math.max(1, Math.round(s.atk * pet.atk * sc * (0.9 + Math.random() * 0.2) - (pet.pierce ? 0 : m.def * 0.3)));
+      f.mHp -= d;
+      log.push(`${pet.emoji} **${pet.name}** ra đòn, gây **${d}** sát thương`);
+      if (pet.stun && Math.random() < pet.stun) { stunMonster(1); log.push(`💫 ${m.name} bị ${pet.name} làm choáng!`); }
+      if (winNow()) return {};
+    }
+    if (pet.heal) { const h = heal(Math.round(s.maxHp * pet.heal * sc)); if (h > 0) log.push(`${pet.emoji} **${pet.name}** chữa thương, hồi **${h}** HP`); }
+    if (pet.mana) p.mp = Math.min(s.maxMp, p.mp + pet.mana);
+  }
+
   // Thiêu đốt
   if (f.burn?.t > 0) {
     f.mHp -= f.burn.d; f.burn.t--;
@@ -544,23 +640,25 @@ function act(p, f, action) {
   if (f.stun > 0) {
     f.stun--;
     log.push(`💫 ${m.name} đang bị định thân, không thể cử động!`);
+  } else if (pet?.guard && Math.random() < pet.guard * petScale(pet.star)) {
+    log.push(`${pet.emoji} **${pet.name}** lao ra đỡ đòn thay bạn! (hậu đậu nhưng dũng cảm)`);
   } else if (Math.random() < pk.dodge) {
     log.push(`💨 Bạn né được đòn của ${m.name}!`);
   } else {
     const crit = Math.random() < 0.1;
     let d = (m.atk * (0.85 + Math.random() * 0.3) - s.def * 0.5) * (crit ? 1.5 : 1);
-    d *= 1 - pk.reduce;
+    d *= 1 - pk.reduce - (pet?.reduce ? pet.reduce * petScale(pet.star) : 0);
     if (f.shield?.t > 0) d *= 1 - f.shield.pct;
     d = Math.max(1, Math.round(d));
     p.hp -= d;
     log.push(`${m.emoji} ${m.name} vồ trúng bạn, gây **${d}** sát thương${crit ? ' 💥' : ''}`);
     if (p.hp <= 0) {
       p.deaths++;
-      const lost = Math.floor(p.gold * 0.1);
+      const lost = f.tower ? 0 : Math.floor(p.gold * 0.1);
       p.gold -= lost;
       p.hp = Math.max(1, Math.ceil(s.maxHp * 0.3));
       f.over = 'lose'; f.log = [...log, '💀 Bạn ngất đi...'];
-      f.rewards = `Cửu Thúc cõng bạn về miếu. Mất **${fmt(lost)}** vàng tiền thuốc, hồi lại 30% HP.`;
+      f.rewards = f.tower ? 'Bạn bị đánh bật khỏi tháp, không mất vàng. Hồi lại 30% HP.' : `Cửu Thúc cõng bạn về miếu. Mất **${fmt(lost)}** vàng tiền thuốc, hồi lại 30% HP.`;
       return {};
     }
     if (pk.thorns) {
@@ -667,7 +765,7 @@ function enhanceAttempt(p, id, mode) {
     else {
       if (count(p, id) > 0) removeItem(p, id);
       else for (const [slot, eid] of Object.entries(p.equip)) if (eid === id) p.equip[slot] = null;
-      if (!owns(p, id)) delete p.enh[id];
+      if (!owns(p, id)) { delete p.enh[id]; releaseGems(p, id); }
       exists = owns(p, id);
       lines.push(`💥 **VỠ NÁT!** ${label(id)} tan thành tro bụi...`);
       const s2 = stats(p); p.hp = Math.min(p.hp, s2.maxHp); p.mp = Math.min(p.mp, s2.maxMp);
@@ -814,6 +912,385 @@ async function runKiep(i, uid, p, mode) {
   } finally { kieps.delete(uid); }
 }
 
+/* ═══════════════════════════ ĐỆ TỬ (TRIỆU HỒI) ═══════════════════════════ */
+function summonOnce(p) {
+  p.pity++;
+  const r = Math.random();
+  const rar = p.pity >= 30 || r < 0.1 ? 'SSR' : r < 0.4 ? 'SR' : 'R';
+  if (rar === 'SSR') p.pity = 0;
+  const id = pick(Object.keys(PETS).filter((k) => PETS[k].rar === rar));
+  const cur = p.pets[id];
+  let note;
+  if (!cur) { p.pets[id] = { star: 1 }; note = '✨ MỚI!'; }
+  else if (cur.star < 5) { cur.star++; note = `⭐ lên ${cur.star} sao`; }
+  else { addItem(p, 'linhthach', 3); note = 'đã max sao → +3 💠'; }
+  if (!p.pet) p.pet = id;
+  return { id, rar, note };
+}
+
+function petView(p, uid) {
+  const lines = Object.entries(PETS).map(([id, d]) => {
+    const own = p.pets[id];
+    return `${p.pet === id ? '▶️' : '▫️'} ${d.emoji} **${d.name}** \`${d.rar}\` ${own ? '⭐'.repeat(own.star) : '❓ chưa có'}\n┗ *${d.desc}*`;
+  });
+  const e = embed(0x16a085).setTitle('🧑‍🤝‍🧑 Đệ tử của bạn')
+    .setDescription(`${lines.join('\n')}\n\n🎲 Triệu hồi: \`/trieuhoi\` (${fmt(PET_COST)}🪙/lần) • Bảo đảm SSR sau 30 lần (đã ${p.pity}/30)\n⭐ Trùng đệ tử → tăng sao (tối đa 5), mỗi sao +20% hiệu quả.`);
+  const owned = Object.keys(p.pets);
+  const comps = [];
+  if (owned.length) {
+    comps.push(row(new StringSelectMenuBuilder().setCustomId(`petset:${uid}`).setPlaceholder('Chọn đệ tử đồng hành...')
+      .addOptions([...owned.map((id) => ({ label: `${PETS[id].name} ${'⭐'.repeat(p.pets[id].star)}`, value: id, emoji: PETS[id].emoji, default: p.pet === id })),
+        { label: 'Cất đệ tử đi', value: 'none', emoji: '🚫' }])));
+  }
+  return { content: '', embeds: [e], components: comps };
+}
+
+/* ═══════════════════════════ VÕ ĐÀI PvP ═══════════════════════════ */
+const pendingDuels = new Map();
+const PVP_DMG = 0.45; // sát thương PvP thấp hơn PvE để trận đấu kéo dài, có chiến thuật
+
+function simulateDuel(pa, pb) {
+  const mk = (p) => { const s = stats(p); return { p, s, pk: perks(p), hp: s.maxHp, mp: s.maxMp, stun: 0, shield: null, burn: null, name: p.name }; };
+  const A = mk(pa), B = mk(pb), log = [];
+  const turn = (X, Y) => {
+    if (X.burn?.t > 0) { X.hp -= X.burn.d; X.burn.t--; log.push(`🔥 **${X.name}** bị thiêu đốt **-${X.burn.d}**`); if (X.hp <= 0) return; }
+    if (X.stun > 0) { X.stun--; log.push(`💫 **${X.name}** choáng váng, mất lượt!`); return; }
+    const skills = CLASSES[X.p.cls].skills.filter((sk) => X.p.level >= sk.lv && X.mp >= sk.cost);
+    const sk = skills.length && Math.random() < 0.7 ? (Math.random() < 0.6 ? skills[skills.length - 1] : pick(skills)) : null;
+    if (sk) X.mp -= sk.cost;
+    if (Math.random() < Y.pk.dodge) { log.push(`💨 **${Y.name}** né được đòn của **${X.name}**!`); return; }
+    const hits = sk?.hits || 1; let total = 0, crit = 0;
+    for (let h = 0; h < hits; h++) {
+      const r = calcDmg(X.s.atk, Y.s.def, { mult: sk?.mult || 1, ignoreDef: sk?.ignoreDef, critC: 0.15 + X.pk.crit });
+      let d = r.dmg * PVP_DMG * (1 - Y.pk.reduce);
+      if (Y.shield?.t > 0) d *= 1 - Y.shield.pct;
+      d = Math.max(1, Math.round(d));
+      Y.hp -= d; total += d; if (r.crit) crit++;
+      const ls = X.pk.lifesteal + (sk?.lifesteal || 0);
+      if (ls > 0) X.hp = Math.min(X.s.maxHp, X.hp + Math.round(d * ls));
+    }
+    log.push(`${sk ? `✨ **${X.name}** thi triển **${sk.name}**` : `⚔️ **${X.name}** ra đòn`}${hits > 1 ? ` (${hits} đòn)` : ''}: **-${total}** HP${crit ? ' 💥' : ''}`);
+    if (Math.random() < X.pk.thunder) { const d = Math.round((X.s.atk * 1.2 + X.p.level * 3) * PVP_DMG); Y.hp -= d; log.push(`⚡ Thiên lôi giáng xuống **${Y.name}** **-${d}**`); }
+    if (sk?.heal) X.hp = Math.min(X.s.maxHp, X.hp + Math.round(X.s.maxHp * sk.heal));
+    if ((sk?.stun && Math.random() < sk.stun) || (!sk && X.pk.stun && Math.random() < X.pk.stun)) { Y.stun = 1; log.push(`💫 **${Y.name}** bị choáng!`); }
+    if (sk?.burn) Y.burn = { d: Math.max(1, Math.round(X.s.atk * sk.burn.atkPct * PVP_DMG)), t: sk.burn.t };
+    if (sk?.shield) { X.shield = { ...sk.shield }; log.push(`🛡️ **${X.name}** dựng kim quang hộ thể!`); }
+    if (Y.pk.thorns) X.hp -= Math.round(total * Y.pk.thorns);
+    if (X.shield?.t > 0) X.shield.t--;
+  };
+  const [f1, f2] = pa.level >= pb.level ? [A, B] : [B, A];
+  let rounds = 0;
+  while (rounds < 40 && A.hp > 0 && B.hp > 0) {
+    rounds++;
+    log.push(`**— Hiệp ${rounds} —**`);
+    turn(f1, f2); if (f2.hp <= 0 || f1.hp <= 0) break;
+    turn(f2, f1);
+    for (const X of [A, B]) X.mp = Math.min(X.s.maxMp, X.mp + 3 + X.pk.regen);
+  }
+  const ra = A.hp / A.s.maxHp, rb = B.hp / B.s.maxHp;
+  return { winner: ra >= rb ? 'a' : 'b', A, B, log, rounds };
+}
+
+const duelEmbed = (a, b, lines, color = 0xe74c3c) => embed(color).setTitle(`🏟️ ${a.name} ⚔️ ${b.name}`).setDescription(lines.slice(-14).join('\n') || '🥁 Võ đài mở màn...');
+
+async function runDuel(i, cid, tid, bet, accept) {
+  const key = `${cid}:${tid}`, pd = pendingDuels.get(key);
+  if (!pd || Date.now() - pd.t > 120000) { pendingDuels.delete(key); return i.update({ content: '⌛ Lời thách đấu đã hết hạn.', embeds: [], components: [] }); }
+  pendingDuels.delete(key);
+  if (!accept) return i.update({ content: `🏳️ <@${tid}> đã từ chối lời thách đấu.`, embeds: [], components: [] });
+  const a = db.players[cid], b = db.players[tid];
+  if (!a || !b) return i.update({ content: '❌ Không tìm thấy nhân vật.', embeds: [], components: [] });
+  if (fights.has(cid) || fights.has(tid)) return i.update({ content: '⚔️ Có người đang trong trận chiến, hãy thách đấu lại sau.', embeds: [], components: [] });
+  if (a.gold < bet || b.gold < bet) return i.update({ content: '💸 Một trong hai người không đủ vàng cược.', embeds: [], components: [] });
+
+  const res = simulateDuel(a, b);
+  await i.update({ content: '', embeds: [duelEmbed(a, b, ['🥁 Hai bên chắp tay thi lễ, võ đài mở màn...'])], components: [] });
+  await sleep(1500);
+  const chunk = Math.max(4, Math.ceil(res.log.length / 8));
+  for (let k = chunk; k < res.log.length; k += chunk) {
+    await i.editReply({ embeds: [duelEmbed(a, b, res.log.slice(0, k))] });
+    await sleep(1600);
+  }
+  const W = res.winner === 'a' ? a : b, L = res.winner === 'a' ? b : a, WS = res.winner === 'a' ? res.A : res.B;
+  const gain = Math.max(8, Math.min(30, 15 + Math.round((L.honor - W.honor) / 20)));
+  W.honor += gain; W.duelWins++; L.honor = Math.max(0, L.honor - 8);
+  if (bet) { W.gold += bet; L.gold -= bet; }
+  save();
+  const e = duelEmbed(a, b, res.log, 0xf1c40f)
+    .addFields({ name: `🏆 ${W.name} chiến thắng sau ${res.rounds} hiệp!`, value: `❤️ ${bar(Math.max(0, WS.hp), WS.s.maxHp)} ${fmt(Math.max(0, WS.hp))}/${fmt(WS.s.maxHp)}\n🏅 ${W.name} **+${gain}** danh vọng • ${L.name} **-8**${bet ? `\n💰 ${W.name} thắng **${fmt(bet)}** vàng cược` : ''}\n*Đấu võ đài không mất HP hay vật phẩm.*` });
+  return i.editReply({ embeds: [e], components: [] });
+}
+
+/* ═══════════════════════════ KHẢM BẢO NGỌC ═══════════════════════════ */
+function gemView(p, uid, id) {
+  const n = socketsOf(id), arr = p.gems[id] || [];
+  const lines = Array.from({ length: n }, (_, k) => (arr[k] ? `${k + 1}. ${label(arr[k])} – *${statText(ITEMS[arr[k]])}*` : `${k + 1}. ⬜ *ô trống*`));
+  const e = embed(0x1abc9c).setTitle(`💎 Khảm ngọc • ${dname(p, id)}`)
+    .setDescription(`${lines.join('\n')}\n\nGộp 3 ngọc cùng loại thành 1 ngọc cao cấp hơn bằng \`/chetao\`. Tháo ngọc miễn phí.`);
+  const comps = [];
+  const gems = Object.keys(p.inv).filter((g) => ITEMS[g].type === 'gem');
+  if (arr.length < n && gems.length) {
+    comps.push(row(new StringSelectMenuBuilder().setCustomId(`gemput:${id}:${uid}`).setPlaceholder('➕ Chọn ngọc để khảm...')
+      .addOptions(gems.slice(0, 25).map((g) => ({ label: `${ITEMS[g].name} x${p.inv[g]}`, value: g, emoji: ITEMS[g].emoji, description: statText(ITEMS[g]).slice(0, 100) })))));
+  }
+  if (arr.length) {
+    comps.push(row(new StringSelectMenuBuilder().setCustomId(`gemrm:${id}:${uid}`).setPlaceholder('➖ Tháo ngọc...')
+      .addOptions(arr.map((g, k) => ({ label: `Tháo ô ${k + 1}: ${ITEMS[g].name}`, value: String(k), emoji: ITEMS[g].emoji })))));
+  }
+  return { content: '', embeds: [e], components: comps };
+}
+
+/* ═══════════════════════════ SỰ KIỆN NGẪU NHIÊN ═══════════════════════════ */
+function randomEvent(p) {
+  const r = Math.random(), s = stats(p);
+  if (r < 0.3) { const g = rand(100, 300) * Math.ceil(p.level / 5); p.gold += g; return `📦 Bạn tìm thấy một **rương cổ** ven đường: +${fmt(g)} vàng!`; }
+  if (r < 0.55) { const id = pick(['linhdan', 'dailinhdan', 'tudan']); addItem(p, id, 2); return `🧙 Một **thương nhân bí ẩn** tặng bạn 2x ${label(id)}.`; }
+  if (r < 0.75) { addItem(p, 'linhthach', 2); return '💠 Linh Thạch lấp lánh dưới đất: +2 Linh Thạch!'; }
+  if (r < 0.9) { const gid = `${pick(Object.keys(GEM_KINDS))}1`; addItem(p, gid); return `✨ Một đạo sĩ già tặng bạn ${label(gid)}.`; }
+  const d = Math.round(s.maxHp * 0.08); p.hp = Math.max(1, p.hp - d);
+  return `🕳️ Bạn **sa vào bẫy ma**, mất ${fmt(d)} HP!`;
+}
+
+/* ═══════════════════════════ THÀNH TỰU ═══════════════════════════ */
+function checkAch(p) {
+  const got = [];
+  for (const a of ACH) {
+    if (p.ach[a.id] || !a.test(p)) continue;
+    p.ach[a.id] = Date.now(); p.gold += a.gold;
+    if (!p.title) p.title = a.id;
+    got.push(`🏅 **${a.name}**${a.gold ? ` (+${fmt(a.gold)} vàng)` : ''}`);
+  }
+  return got;
+}
+const bonusText = (b) => Object.entries(b).map(([k, v]) => `+${pct(v)} ${{ atk: 'công', def: 'thủ', hp: 'HP' }[k]}`).join(', ');
+
+function achView(p, uid) {
+  const lines = ACH.map((a) => `${p.ach[a.id] ? '✅' : '⬜'} **${a.name}** – ${a.desc}\n┗ *Danh hiệu: ${bonusText(a.title)}*${a.gold ? ` • thưởng ${fmt(a.gold)}🪙` : ''}`);
+  const e = embed(0xf39c12).setTitle('🏅 Thành tựu & Danh hiệu')
+    .setDescription(`Đã mở **${Object.keys(p.ach).length}/${ACH.length}** • Danh hiệu hiện tại: **${titleName(p) || 'chưa đeo'}**\n\n${lines.join('\n')}`);
+  const unlocked = ACH.filter((a) => p.ach[a.id]);
+  const comps = [];
+  if (unlocked.length) {
+    comps.push(row(new StringSelectMenuBuilder().setCustomId(`titleset:${uid}`).setPlaceholder('🎖️ Chọn danh hiệu để đeo...')
+      .addOptions([...unlocked.map((a) => ({ label: a.name, value: a.id, description: bonusText(a.title), default: p.title === a.id })), { label: 'Tháo danh hiệu', value: 'none', emoji: '🚫' }])));
+  }
+  return { content: '', embeds: [e], components: comps };
+}
+
+/* ═══════════════════════════ TRẤN YÊU THÁP ═══════════════════════════ */
+const TOWER_MOBS = [['Cương Thi Thủ Tháp', '🧟', true], ['Oán Hồn Tháp Cổ', '👻', true], ['Yêu Hồ Thủ Vệ', '🦊', false], ['Thạch Quỷ', '🗿', false], ['Huyết Tướng', '👿', false], ['Hắc Long Con', '🐲', false]];
+function towerMonster(floor) {
+  const boss = floor % 10 === 0;
+  const [name, emoji, undead] = boss ? [`Tháp Chủ Tầng ${floor}`, '👑', true] : pick(TOWER_MOBS);
+  const gold = Math.round(60 * floor * (boss ? 4 : 1));
+  const drops = boss
+    ? [['loithach', 1, floor >= 30 ? 5 : 3], ['huyetngoc', floor >= 30 ? 1 : 0.3, 2], ['phubaoho', 0.3], ['thienvanphu', 0.4], [`weapon:${Math.max(1, Math.min(4, Math.floor(floor / 12)))}`, 0.08]]
+    : [['chusa', 0.3], ['giayvang', 0.3]];
+  return { name, emoji, undead, hp: Math.round(150 * Math.pow(1.1, floor) * (boss ? 2.5 : 1)), atk: Math.round(15 * Math.pow(1.082, floor) * (boss ? 1.25 : 1)),
+    def: Math.round(5 * Math.pow(1.078, floor)), exp: Math.round(25 * floor * (boss ? 3 : 1)), gold: [gold, gold], drops, floorBoss: boss };
+}
+function beginTower(uid, p) {
+  const s = stats(p);
+  if (p.hp < s.maxHp * 0.15) return { error: '🩸 Bạn quá yếu! Hãy dùng đan dược hoặc `/toathien` để hồi sức trước.' };
+  const floor = p.towerBest + 1, m = towerMonster(floor);
+  const f = { map: 'thap', tower: true, floor, m, mHp: m.hp, boss: m.floorBoss, stun: 0, burn: null, shield: null, turn: 1, t: Date.now(), over: null,
+    log: [`🗼 **Tầng ${floor}** – ${m.floorBoss ? '👑 **TẦNG BOSS!** ' : ''}${m.emoji} **${m.name}** xuất hiện!`] };
+  fights.set(uid, f);
+  return { fight: f };
+}
+const mapLabel = (f) => (f.tower ? `🗼 Trấn Yêu Tháp • Tầng ${f.floor}` : `${MAPS[f.map].emoji} ${MAPS[f.map].name}`);
+
+/* ═══════════════════════════ BOSS THẾ GIỚI ═══════════════════════════ */
+const WB_COOLDOWN = 30 * 60 * 1000, WB_DURATION = 3 * 3600 * 1000, WB_HIT_CD = 3 * 60 * 1000;
+const WB_NAMES = [['Bạch Cốt Phu Nhân', '💀'], ['Thiên Niên Thi Tổ', '🧟‍♂️'], ['Cửu U Quỷ Mẫu', '👹'], ['Huyết Ma Lão Tổ', '🩸']];
+
+function settleWb(w, killed, killerUid) {
+  const entries = Object.entries(w.hits).sort((a, b) => b[1] - a[1]);
+  const total = entries.reduce((x, [, d]) => x + d, 0) || 1;
+  const pool = Math.round(w.max / 8) * (killed ? 1 : 0.3);
+  const lines = [killed ? `🏆 **${w.name}** đã bị hạ gục!` : `💨 **${w.name}** đã trốn thoát (hết giờ)...`];
+  entries.forEach(([uid, dmg], idx) => {
+    const q = db.players[uid];
+    if (!q) return;
+    const gold = Math.round(pool * dmg / total) + 200;
+    q.gold += gold; addItem(q, 'linhthach', idx === 0 ? 5 : idx < 3 ? 3 : 1);
+    let extra = '';
+    if (killed) {
+      q.honor += 5; addItem(q, 'loithach', rand(1, 3));
+      addItem(q, `${pick(Object.keys(GEM_KINDS))}${Math.random() < 0.2 ? 2 : 1}`);
+      if (idx === 0 && Math.random() < 0.35) {
+        const id = resolveDrop(pick(['weapon:4', 'treasure:2', 'armor:3']), q.cls);
+        if (id) { addItem(q, id); extra = ` 🎁 ${label(id)}`; }
+      }
+      if (uid === killerUid) { addItem(q, 'thienvanphu', 2); q.honor += 10; q.gold += Math.round(pool * 0.05); q.wbKills++; extra += ' 🗡️ kết liễu'; }
+    }
+    if (idx < 5) lines.push(`${['🥇', '🥈', '🥉', '4️⃣', '5️⃣'][idx]} **${q.name}** – ${fmt(dmg)} sát thương → +${fmt(gold)}🪙${extra}`);
+  });
+  w.active = false; w.endedAt = Date.now();
+  return lines;
+}
+function wbSync() {
+  const w = db.wb;
+  if (w.active && Date.now() > w.expires) return settleWb(w, false).join('\n');
+  return null;
+}
+function wbSpawn() {
+  const w = db.wb;
+  if (w.active) return { error: '🌍 Đang có Boss Thế Giới rồi!' };
+  const cd = WB_COOLDOWN - (Date.now() - w.endedAt);
+  if (cd > 0) return { error: `⏳ Boss kế tiếp có thể triệu hồi sau **${Math.ceil(cd / 60000)} phút**.` };
+  const top = Object.values(db.players).map((q) => stats(q)).sort((a, b) => b.atk - a.atk).slice(0, 5);
+  const avgAtk = top.length ? top.reduce((x, y) => x + y.atk, 0) / top.length : 20;
+  const avgDef = top.length ? top.reduce((x, y) => x + y.def, 0) / top.length : 5;
+  const [name, emoji] = pick(WB_NAMES);
+  Object.assign(w, { active: true, name, emoji, max: Math.max(5000, Math.round(avgAtk * 500)), hp: 0, def: Math.round(avgDef * 0.6), spawned: Date.now(), expires: Date.now() + WB_DURATION, hits: {} });
+  w.hp = w.max;
+  return { ok: true };
+}
+function wbAttack(p, uid) {
+  const w = db.wb;
+  if (!w.active) return { error: '🌍 Hiện không có Boss Thế Giới.' };
+  const cd = WB_HIT_CD - (Date.now() - p.lastWb);
+  if (cd > 0) return { error: `⏳ Bạn cần nghỉ **${Math.ceil(cd / 1000)} giây** nữa mới tấn công tiếp.` };
+  const s = stats(p), pk = perks(p), cls = CLASSES[p.cls];
+  const pet = p.pet && p.pets[p.pet] ? { ...PETS[p.pet], star: p.pets[p.pet].star } : null;
+  let mp = s.maxMp, total = 0, skillUses = 0;
+  for (let r = 0; r < 6; r++) {
+    const skills = cls.skills.filter((sk) => p.level >= sk.lv && mp >= sk.cost);
+    const sk = skills.length && Math.random() < 0.75 ? skills[skills.length - 1] : null;
+    if (sk) { mp -= sk.cost; skillUses++; }
+    const hits = sk?.hits || 1;
+    for (let h = 0; h < hits; h++) total += calcDmg(s.atk, w.def, { mult: sk?.mult || 1, ignoreDef: sk?.ignoreDef, critC: 0.15 + pk.crit }).dmg;
+    if (Math.random() < pk.thunder) total += Math.round(s.atk * 1.2 + p.level * 3);
+    if (pet?.atk) total += Math.max(1, Math.round(s.atk * pet.atk * petScale(pet.star)));
+    mp = Math.min(s.maxMp, mp + 3 + pk.regen);
+  }
+  total = Math.min(total, w.hp);
+  w.hp -= total; w.hits[uid] = (w.hits[uid] || 0) + total; p.wbHits++; p.lastWb = Date.now();
+  const lines = [`⚔️ Bạn tung chuỗi đòn (${skillUses} tuyệt kỹ), gây **${fmt(total)}** sát thương lên **${w.name}**!`];
+  if (w.hp <= 0) { w.hp = 0; return { lines: [...lines, '', ...settleWb(w, true, uid)], killed: true }; }
+  return { lines };
+}
+function wbView(p, uid, notes = []) {
+  const notice = wbSync(), w = db.wb;
+  const e = embed(0xc0392b).setTitle('🌍 Boss Thế Giới');
+  const head = [...(notice ? [notice, ''] : []), ...notes, ...(notes.length ? [''] : [])];
+  const b = (kind, text, emoji, style, disabled) => new ButtonBuilder().setCustomId(`wb:${kind}:${uid}`).setLabel(text).setEmoji(emoji).setStyle(style).setDisabled(disabled);
+  if (!w.active) {
+    const cd = WB_COOLDOWN - (Date.now() - w.endedAt);
+    e.setDescription([...head, cd > 0 ? `Chưa có boss. Có thể triệu hồi sau **${Math.ceil(cd / 60000)} phút**.` : 'Chưa có boss. Hãy triệu hồi Boss Thế Giới để cả server cùng hạ!'].join('\n'));
+    return { content: '', embeds: [e], components: [row(b('spawn', 'Triệu hồi boss', '🌟', ButtonStyle.Success, cd > 0))] };
+  }
+  const top = Object.entries(w.hits).sort((a, c) => c[1] - a[1]).slice(0, 5)
+    .map(([id, d], n) => `${['🥇', '🥈', '🥉', '4️⃣', '5️⃣'][n]} ${db.players[id]?.name || '???'} – ${fmt(d)}`).join('\n') || '*Chưa ai ra đòn*';
+  const cd = WB_HIT_CD - (Date.now() - p.lastWb);
+  e.setDescription([...head, `${w.emoji} **${w.name}** (thủ ${w.def})`, `❤️ ${bar(w.hp, w.max, 14)} ${fmt(w.hp)}/${fmt(w.max)}`, `⏰ Rút lui <t:${Math.floor(w.expires / 1000)}:R>`,
+    '', '**Bảng sát thương:**', top, '', `Sát thương của bạn: **${fmt(w.hits[uid] || 0)}**${cd > 0 ? ` • ⏳ chờ ${Math.ceil(cd / 1000)}s` : ''}`].join('\n'));
+  return { content: '', embeds: [e], components: [row(b('hit', 'Tấn công', '⚔️', ButtonStyle.Danger, false), b('refresh', 'Làm mới', '🔄', ButtonStyle.Secondary, false))] };
+}
+
+/* ═══════════════════════════ TÔNG MÔN ═══════════════════════════ */
+const guildKey = (n) => norm(n).replace(/\s+/g, ' ').trim();
+const guildNeed = (lv) => 10000 * lv;
+function guildCreate(p, uid, name) {
+  if (p.guild) return { ok: false, msg: '❌ Bạn đã thuộc một tông môn. Hãy rời đi trước.' };
+  name = name.trim();
+  if (name.length < 3 || name.length > 20) return { ok: false, msg: '❌ Tên tông môn dài 3–20 ký tự.' };
+  const key = guildKey(name);
+  if (db.guilds[key]) return { ok: false, msg: '❌ Tên tông môn đã tồn tại.' };
+  if (p.gold < GUILD_COST) return { ok: false, msg: `💸 Cần **${fmt(GUILD_COST)}** vàng để lập tông môn.` };
+  p.gold -= GUILD_COST; p.guild = key; p.contrib = 0;
+  db.guilds[key] = { name, leader: uid, members: [uid], lv: 1, exp: 0, created: Date.now() };
+  return { ok: true, msg: `🏯 Đã lập tông môn **${name}**! Bạn là tông chủ. Mời bạn bè dùng \`/tongmon thamgia\`.` };
+}
+function guildJoin(p, uid, name) {
+  if (p.guild) return { ok: false, msg: '❌ Bạn đã thuộc một tông môn.' };
+  const g = db.guilds[guildKey(name)];
+  if (!g) return { ok: false, msg: '❌ Không tìm thấy tông môn này.' };
+  if (g.members.length >= GUILD_MAX_MEMBERS) return { ok: false, msg: '❌ Tông môn đã đủ người.' };
+  g.members.push(uid); p.guild = guildKey(name); p.contrib = 0;
+  return { ok: true, msg: `🏯 Bạn đã gia nhập tông môn **${g.name}**! Mọi chỉ số +${pct(GUILD_BONUS * g.lv)}.` };
+}
+function guildLeave(p, uid) {
+  const g = p.guild && db.guilds[p.guild];
+  if (!g) { p.guild = null; return { ok: false, msg: '❌ Bạn chưa có tông môn.' }; }
+  g.members = g.members.filter((x) => x !== uid);
+  const key = p.guild; p.guild = null; p.contrib = 0;
+  if (!g.members.length) { delete db.guilds[key]; return { ok: true, msg: `🏯 Bạn là người cuối cùng rời đi, tông môn **${g.name}** giải tán.` }; }
+  if (g.leader === uid) g.leader = g.members[0];
+  return { ok: true, msg: `🏯 Bạn đã rời tông môn **${g.name}**.` };
+}
+function guildDonate(p, amount) {
+  const g = p.guild && db.guilds[p.guild];
+  if (!g) return { ok: false, msg: '❌ Bạn chưa có tông môn.' };
+  if (p.gold < amount) return { ok: false, msg: '💸 Bạn không đủ vàng.' };
+  if (g.lv >= GUILD_MAX_LV) return { ok: false, msg: '🏯 Tông môn đã đạt cấp tối đa!' };
+  p.gold -= amount; p.contrib += amount; g.exp += amount;
+  let up = 0;
+  while (g.lv < GUILD_MAX_LV && g.exp >= guildNeed(g.lv)) { g.exp -= guildNeed(g.lv); g.lv++; up++; }
+  if (g.lv >= GUILD_MAX_LV) g.exp = 0;
+  return { ok: true, msg: `🙏 Bạn cống hiến **${fmt(amount)}** vàng cho tông môn.${up ? `\n🎉 **Tông môn lên cấp ${g.lv}!** Mọi thành viên +${pct(GUILD_BONUS * g.lv)} chỉ số.` : ''}` };
+}
+function guildEmbed(p) {
+  const g = p.guild && db.guilds[p.guild];
+  if (!g) return embed(0x7f8c8d).setTitle('🏯 Tông môn').setDescription('Bạn chưa có tông môn. Dùng `/tongmon taolap` (5.000 vàng) hoặc `/tongmon thamgia`.');
+  const mem = g.members.map((id) => db.players[id]).filter(Boolean).sort((a, b) => b.contrib - a.contrib);
+  return embed(0xd35400).setTitle(`🏯 ${g.name} • Cấp ${g.lv}/${GUILD_MAX_LV}`)
+    .setDescription(`👑 Tông chủ: **${db.players[g.leader]?.name || '???'}** • 👥 ${g.members.length}/${GUILD_MAX_MEMBERS}\n🎁 Thưởng cấp: mọi chỉ số **+${pct(GUILD_BONUS * g.lv)}**\n${g.lv >= GUILD_MAX_LV ? '⭐ Đã đạt cấp tối đa!' : `📈 ${bar(g.exp, guildNeed(g.lv))} ${fmt(g.exp)}/${fmt(guildNeed(g.lv))} cống hiến`}\n\n**Thành viên:**\n${mem.slice(0, 15).map((m, n) => `${n + 1}. ${CLASSES[m.cls].emoji} ${m.name} – ${fmt(m.contrib)}🪙`).join('\n')}`);
+}
+
+/* ═══════════════════════════ CHỢ NGƯỜI CHƠI ═══════════════════════════ */
+const MARKET_MAX = 10, MARKET_TTL = 48 * 3600 * 1000, MARKET_FEE = 0.05;
+function marketSync() {
+  const now = Date.now();
+  for (const [id, l] of Object.entries(db.market.list)) {
+    if (now - l.t > MARKET_TTL) { const sl = db.players[l.seller]; if (sl) addItem(sl, l.item, l.qty); delete db.market.list[id]; }
+  }
+  return db.market;
+}
+function marketPost(p, uid, item, qty, price) {
+  const m = marketSync();
+  if (!ITEMS[item] || count(p, item) < qty) return { ok: false, msg: '❌ Bạn không có đủ số lượng đó.' };
+  if (enhOf(p, item) > 0 || p.gems?.[item]?.length) return { ok: false, msg: '❌ Không thể đăng bán món đã cường hóa hoặc đang khảm ngọc.' };
+  if (!Number.isInteger(price) || price < 1 || price > 100000000) return { ok: false, msg: '❌ Giá không hợp lệ.' };
+  if (Object.values(m.list).filter((l) => l.seller === uid).length >= MARKET_MAX) return { ok: false, msg: `❌ Mỗi người chỉ đăng tối đa ${MARKET_MAX} món.` };
+  removeItem(p, item, qty);
+  const id = m.next++;
+  m.list[id] = { id, seller: uid, item, qty, price, t: Date.now() };
+  return { ok: true, id, msg: `✅ Đã đăng bán **#${id}**: ${qty}x ${label(item)} giá **${fmt(price)}**/cái (phí 5% khi bán xong, hết hạn sau 48 giờ).` };
+}
+function marketBuy(p, uid, id) {
+  const m = marketSync(), l = m.list[id];
+  if (!l) return { ok: false, msg: '❌ Không tìm thấy món này (có thể đã bán).' };
+  if (l.seller === uid) return { ok: false, msg: '❌ Đây là món của bạn. Dùng `/cho huy` để gỡ.' };
+  const total = l.price * l.qty;
+  if (p.gold < total) return { ok: false, msg: `💸 Cần **${fmt(total)}** vàng.` };
+  p.gold -= total; addItem(p, l.item, l.qty);
+  const sl = db.players[l.seller], fee = Math.floor(total * MARKET_FEE);
+  if (sl) sl.gold += total - fee;
+  delete m.list[id];
+  return { ok: true, msg: `🛒 Đã mua ${l.qty}x ${label(l.item)} với giá **${fmt(total)}** vàng.` };
+}
+function marketCancel(p, uid, id) {
+  const m = marketSync(), l = m.list[id];
+  if (!l || l.seller !== uid) return { ok: false, msg: '❌ Không tìm thấy món của bạn với mã này.' };
+  addItem(p, l.item, l.qty); delete m.list[id];
+  return { ok: true, msg: `↩️ Đã gỡ **#${id}**, ${l.qty}x ${label(l.item)} trở lại túi.` };
+}
+function marketView(p, uid, type) {
+  const m = marketSync();
+  const list = Object.values(m.list).filter((l) => !type || ITEMS[l.item].type === type).sort((a, b) => b.t - a.t).slice(0, 25);
+  const line = (l) => `**#${l.id}** ${label(l.item)} x${l.qty} – ${fmt(l.price)}/cái (**${fmt(l.price * l.qty)}**) • ${db.players[l.seller]?.name || '???'}`;
+  const e = embed(0x27ae60).setTitle(`🏪 Chợ người chơi${type ? ` • ${TYPE_INFO[type][1]}` : ''}`)
+    .setDescription(`💰 Bạn có **${fmt(p.gold)}** vàng • Đăng bán: \`/cho dang\` • Phí 5%\n\n${list.slice(0, 15).map(line).join('\n') || '*Chợ đang trống*'}`);
+  const comps = [];
+  if (list.length) {
+    comps.push(row(new StringSelectMenuBuilder().setCustomId(`chobuy:${uid}`).setPlaceholder('🛒 Chọn món để mua ngay...')
+      .addOptions(list.map((l) => ({ label: `#${l.id} ${ITEMS[l.item].name} x${l.qty}`.slice(0, 100), value: String(l.id), emoji: ITEMS[l.item].emoji, description: `${fmt(l.price * l.qty)} vàng`.slice(0, 100) })))));
+  }
+  return { content: '', embeds: [e], components: comps };
+}
+
 /* ═══════════════════════════ ĐỊNH NGHĨA LỆNH ═══════════════════════════ */
 const itemOpt = (o, desc = 'Chọn vật phẩm', req = true) => o.setName('vatpham').setDescription(desc).setRequired(req).setAutocomplete(true);
 const qtyOpt = (o) => o.setName('soluong').setDescription('Số lượng (mặc định 1)').setMinValue(1).setMaxValue(99);
@@ -849,7 +1326,37 @@ const commands = [
   new SlashCommandBuilder().setName('diemdanh').setDescription('🗓️ Điểm danh nhận quà hằng ngày'),
   new SlashCommandBuilder().setName('toathien').setDescription('🧘 Tọa thiền hồi phục (hồi chiêu 10 phút)'),
   new SlashCommandBuilder().setName('nhiemvu').setDescription('📋 Nhận / nộp nhiệm vụ của Cửu Thúc'),
-  new SlashCommandBuilder().setName('bxh').setDescription('🏆 Bảng xếp hạng đạo sĩ'),
+  new SlashCommandBuilder().setName('bxh').setDescription('🏆 Bảng xếp hạng đạo sĩ')
+    .addStringOption((o) => o.setName('loai').setDescription('Loại xếp hạng').addChoices({ name: 'Cảnh giới & cấp độ', value: 'cap' }, { name: 'Danh vọng võ đài', value: 'danhvong' })),
+  new SlashCommandBuilder().setName('khamngoc').setDescription('💎 Khảm bảo ngọc vào trang bị')
+    .addStringOption((o) => itemOpt(o, 'Trang bị muốn khảm ngọc')),
+  new SlashCommandBuilder().setName('trieuhoi').setDescription('🎲 Triệu hồi đệ tử (Thu Sinh, Văn Tài, Đình Đình...)')
+    .addIntegerOption((o) => o.setName('so_lan').setDescription('Số lần').addChoices({ name: '1 lần (1.000 vàng)', value: 1 }, { name: '10 lần (9.000 vàng)', value: 10 })),
+  new SlashCommandBuilder().setName('dedu').setDescription('🧑‍🤝‍🧑 Xem và chọn đệ tử đồng hành'),
+  new SlashCommandBuilder().setName('thachdau').setDescription('🏟️ Thách đấu võ đài với người chơi khác')
+    .addUserOption((o) => o.setName('nguoi').setDescription('Đối thủ').setRequired(true))
+    .addIntegerOption((o) => o.setName('cuoc').setDescription('Vàng cược (tuỳ chọn)').setMinValue(0).setMaxValue(1000000)),
+  new SlashCommandBuilder().setName('thap').setDescription('🗼 Leo Trấn Yêu Tháp (mỗi tầng mạnh hơn, 10 tầng có boss)')
+    .addStringOption((o) => o.setName('hanh_dong').setDescription('Hành động').addChoices({ name: 'Leo tháp', value: 'leo' }, { name: 'Bảng xếp hạng tháp', value: 'bxh' })),
+  new SlashCommandBuilder().setName('bosstg').setDescription('🌍 Boss Thế Giới – cả server cùng đánh'),
+  new SlashCommandBuilder().setName('thanhtuu').setDescription('🏅 Xem thành tựu và đeo danh hiệu'),
+  new SlashCommandBuilder().setName('tongmon').setDescription('🏯 Tông môn – cống hiến để cả nhóm mạnh lên')
+    .addSubcommand((c) => c.setName('taolap').setDescription('Lập tông môn (5.000 vàng)').addStringOption((o) => o.setName('ten').setDescription('Tên tông môn (3-20 ký tự)').setRequired(true).setMinLength(3).setMaxLength(20)))
+    .addSubcommand((c) => c.setName('thamgia').setDescription('Gia nhập tông môn').addStringOption((o) => o.setName('ten').setDescription('Tên tông môn').setRequired(true)))
+    .addSubcommand((c) => c.setName('roi').setDescription('Rời tông môn'))
+    .addSubcommand((c) => c.setName('thongtin').setDescription('Xem tông môn của bạn'))
+    .addSubcommand((c) => c.setName('donggop').setDescription('Cống hiến vàng để nâng cấp tông môn').addIntegerOption((o) => o.setName('vang').setDescription('Số vàng').setRequired(true).setMinValue(100)))
+    .addSubcommand((c) => c.setName('xephang').setDescription('Bảng xếp hạng tông môn')),
+  new SlashCommandBuilder().setName('cho').setDescription('🏪 Chợ người chơi – mua bán với nhau')
+    .addSubcommand((c) => c.setName('xem').setDescription('Xem hàng đang bán')
+      .addStringOption((o) => o.setName('loai').setDescription('Lọc theo loại').addChoices(...Object.entries(TYPE_INFO).map(([value, [, name]]) => ({ name, value })))))
+    .addSubcommand((c) => c.setName('dang').setDescription('Đăng bán vật phẩm')
+      .addStringOption((o) => itemOpt(o, 'Món muốn bán'))
+      .addIntegerOption((o) => o.setName('gia').setDescription('Giá mỗi cái (vàng)').setRequired(true).setMinValue(1).setMaxValue(100000000))
+      .addIntegerOption(qtyOpt))
+    .addSubcommand((c) => c.setName('mua').setDescription('Mua theo mã').addIntegerOption((o) => o.setName('ma').setDescription('Mã món hàng (#)').setRequired(true).setMinValue(1)))
+    .addSubcommand((c) => c.setName('huy').setDescription('Gỡ món đã đăng').addIntegerOption((o) => o.setName('ma').setDescription('Mã món hàng (#)').setRequired(true).setMinValue(1)))
+    .addSubcommand((c) => c.setName('cuatoi').setDescription('Xem hàng bạn đang bán')),
   new SlashCommandBuilder().setName('trogiup').setDescription('📖 Hướng dẫn chơi'),
 ].map((c) => c.toJSON());
 
@@ -865,11 +1372,11 @@ const busy = (i) => i.reply({ content: '⚔️ Bạn đang trong trận chiến!
 
 function profileEmbed(p, user) {
   const s = stats(p), c = CLASSES[p.cls], pk = perks(p), need = expNeed(p.level);
-  const eq = Object.entries(SLOT_NAME).map(([slot, nm]) => `${nm}: ${p.equip[slot] ? dname(p, p.equip[slot]) : '*trống*'}`).join('\n');
+  const eq = Object.entries(SLOT_NAME).map(([slot, nm]) => `${nm}: ${p.equip[slot] ? dname(p, p.equip[slot]) + gemIcons(p, p.equip[slot]) : '*trống*'}`).join('\n');
   const pkLines = Object.entries(pk).filter(([, v]) => v > 0).map(([k, v]) => PERK_TEXT[k](v)).join(' • ');
   const cap = capOf(p);
   const e = embed(0xf1c40f)
-    .setTitle(`${c.emoji} ${p.name} • ${c.name}`)
+    .setTitle(`${c.emoji} ${p.name}${titleName(p) ? ` 「${titleName(p)}」` : ''} • ${c.name}`)
     .setThumbnail(user.displayAvatarURL())
     .addFields(
       { name: '🌌 Cảnh giới', value: `**${REALMS[p.realm]}** • Cấp **${p.level}/${cap}**\n${bar(p.exp, need)} ${fmt(p.exp)}/${fmt(need)}${atBottleneck(p) ? '\n⚡ **Đã chạm bình cảnh – dùng `/dokiep`!**' : ''}`, inline: false },
@@ -879,6 +1386,10 @@ function profileEmbed(p, user) {
       { name: '⚔️ Công', value: `${s.atk}`, inline: true },
       { name: '🛡️ Thủ', value: `${s.def}`, inline: true },
       { name: '🌩️ Độ kiếp', value: `${p.kiepDone} lần`, inline: true },
+      { name: '🏅 Danh vọng', value: `${p.honor}`, inline: true },
+      { name: '🧑‍🤝‍🧑 Đệ tử', value: p.pet && p.pets[p.pet] ? `${PETS[p.pet].emoji} ${PETS[p.pet].name} ${'⭐'.repeat(p.pets[p.pet].star)}` : '*chưa có*', inline: true },
+      { name: '🏯 Tông môn', value: p.guild && db.guilds[p.guild] ? `${db.guilds[p.guild].name} (Lv${db.guilds[p.guild].lv})` : '*chưa có*', inline: true },
+      { name: '🗼 Trấn Yêu Tháp', value: `Tầng ${p.towerBest}`, inline: true },
       { name: '🎽 Trang bị', value: eq, inline: false },
     );
   if (pkLines) e.addFields({ name: '🔱 Hiệu ứng pháp bảo', value: pkLines, inline: false });
@@ -936,7 +1447,7 @@ const handlers = {
     const base = ITEMS[id].sell ?? Math.floor((ITEMS[id].price || 0) * 0.5);
     const each = Math.floor(base * (1 + 0.3 * enhOf(p, id)));
     removeItem(p, id, qty); p.gold += each * qty;
-    if (!owns(p, id)) delete p.enh[id];
+    if (!owns(p, id)) { delete p.enh[id]; releaseGems(p, id); }
     save();
     return i.reply({ content: `💰 Đã bán **${qty}x ${label(id)}** được **${fmt(each * qty)}** vàng.`, flags: EPH });
   },
@@ -1097,10 +1608,117 @@ const handlers = {
   },
 
   async bxh(i) {
-    const top = Object.values(db.players).sort((a, b) => b.realm - a.realm || b.level - a.level || b.exp - a.exp).slice(0, 10);
+    const honor = i.options.getString('loai') === 'danhvong';
+    const top = Object.values(db.players)
+      .sort(honor ? (a, b) => b.honor - a.honor : (a, b) => b.realm - a.realm || b.level - a.level || b.exp - a.exp).slice(0, 10);
     const medals = ['🥇', '🥈', '🥉'];
-    const text = top.map((p, n) => `${medals[n] || `**${n + 1}.**`} ${CLASSES[p.cls].emoji} **${p.name}** – ${REALMS[p.realm]} Cấp ${p.level} • ${fmt(p.kills)} yêu ma`).join('\n') || '*Chưa có ai*';
-    return i.reply({ embeds: [embed(0xf1c40f).setTitle('🏆 Bảng xếp hạng đạo sĩ').setDescription(text)] });
+    const text = top.map((p, n) => `${medals[n] || `**${n + 1}.**`} ${CLASSES[p.cls].emoji} **${p.name}** – ${honor ? `🏅 ${p.honor} danh vọng` : `${REALMS[p.realm]} Cấp ${p.level} • ${fmt(p.kills)} yêu ma`}`).join('\n') || '*Chưa có ai*';
+    return i.reply({ embeds: [embed(0xf1c40f).setTitle(honor ? '🏟️ Bảng danh vọng võ đài' : '🏆 Bảng xếp hạng đạo sĩ').setDescription(text)] });
+  },
+
+  async khamngoc(i) {
+    const p = getPlayer(i); if (!p) return;
+    if (inFight(i)) return busy(i);
+    const id = i.options.getString('vatpham');
+    if (!canEnhance(id) || !owns(p, id)) return i.reply({ content: '❌ Bạn không sở hữu món trang bị này.', flags: EPH });
+    return i.reply(gemView(p, i.user.id, id));
+  },
+
+  async trieuhoi(i) {
+    const p = getPlayer(i); if (!p) return;
+    const n = i.options.getInteger('so_lan') || 1, cost = n === 10 ? PET_COST * 9 : PET_COST;
+    if (p.gold < cost) return i.reply({ content: `💸 Cần **${fmt(cost)}** vàng để triệu hồi.`, flags: EPH });
+    p.gold -= cost;
+    const res = Array.from({ length: n }, () => summonOnce(p));
+    save();
+    const icon = { R: '⚪', SR: '🟣', SSR: '🌟' };
+    return i.reply({ embeds: [embed(0x16a085).setTitle('🎲 Triệu hồi đệ tử')
+      .setDescription(`${res.map((r) => `${icon[r.rar]} ${PETS[r.id].emoji} **${PETS[r.id].name}** \`${r.rar}\` – ${r.note}`).join('\n')}\n\n💰 Còn ${fmt(p.gold)} vàng • Bảo đảm SSR: ${p.pity}/30\nDùng \`/dedu\` để chọn đệ tử đồng hành.`)] });
+  },
+
+  async dedu(i) {
+    const p = getPlayer(i); if (!p) return;
+    return i.reply({ ...petView(p, i.user.id), flags: EPH });
+  },
+
+  async thachdau(i) {
+    const p = getPlayer(i); if (!p) return;
+    const target = i.options.getUser('nguoi'), bet = i.options.getInteger('cuoc') || 0;
+    if (target.id === i.user.id || target.bot) return i.reply({ content: '😅 Bạn không thể thách đấu chính mình hoặc bot.', flags: EPH });
+    const tp = db.players[target.id];
+    if (!tp) return i.reply({ content: 'Đối thủ chưa nhập môn.', flags: EPH });
+    if (inFight(i) || fights.has(target.id)) return i.reply({ content: '⚔️ Một trong hai người đang trong trận chiến.', flags: EPH });
+    if (Date.now() - p.lastDuel < 60000) return i.reply({ content: '⏳ Hãy nghỉ một chút rồi hẵng thách đấu tiếp (hồi chiêu 60 giây).', flags: EPH });
+    if (p.gold < bet || tp.gold < bet) return i.reply({ content: '💸 Cả hai người đều phải có đủ vàng để cược.', flags: EPH });
+    p.lastDuel = Date.now();
+    pendingDuels.set(`${i.user.id}:${target.id}`, { t: Date.now() });
+    const b = (kind, text, emoji, style) => new ButtonBuilder().setCustomId(`duel:${kind}:${i.user.id}:${bet}:${target.id}`).setLabel(text).setEmoji(emoji).setStyle(style);
+    return i.reply({ content: `<@${target.id}>`, embeds: [embed(0xe74c3c).setTitle('🏟️ Lời thách đấu võ đài!')
+      .setDescription(`${CLASSES[p.cls].emoji} **${p.name}** (${REALMS[p.realm]} Lv${p.level}) thách đấu ${CLASSES[tp.cls].emoji} **${tp.name}** (${REALMS[tp.realm]} Lv${tp.level})!${bet ? `\n💰 Tiền cược: **${fmt(bet)}** vàng mỗi bên` : ''}\n\n*Đấu võ đài không mất HP hay vật phẩm. Người thắng nhận danh vọng.*\nLời thách có hiệu lực trong 2 phút.`)],
+    components: [row(b('acc', 'Chấp nhận', '⚔️', ButtonStyle.Success), b('no', 'Từ chối', '🏳️', ButtonStyle.Secondary))] });
+  },
+
+  async thap(i) {
+    const p = getPlayer(i); if (!p) return;
+    const uid = i.user.id;
+    if (i.options.getString('hanh_dong') === 'bxh') {
+      const top = Object.values(db.players).filter((q) => q.towerBest > 0).sort((a, b) => b.towerBest - a.towerBest).slice(0, 10);
+      const medals = ['🥇', '🥈', '🥉'];
+      return i.reply({ embeds: [embed(0x34495e).setTitle('🗼 Bảng xếp hạng Trấn Yêu Tháp')
+        .setDescription(top.map((q, n) => `${medals[n] || `**${n + 1}.**`} ${CLASSES[q.cls].emoji} **${q.name}** – Tầng ${q.towerBest}`).join('\n') || '*Chưa ai leo tháp*')] });
+    }
+    let f = fights.get(uid);
+    if (!f) {
+      const r = beginTower(uid, p);
+      if (r.error) return i.reply({ content: r.error, flags: EPH });
+      f = r.fight;
+    }
+    return i.reply(fightView(uid, p, f));
+  },
+
+  async bosstg(i) {
+    const p = getPlayer(i); if (!p) return;
+    return i.reply({ ...wbView(p, i.user.id), flags: EPH });
+  },
+
+  async thanhtuu(i) {
+    const p = getPlayer(i); if (!p) return;
+    checkAch(p); save();
+    return i.reply({ ...achView(p, i.user.id), flags: EPH });
+  },
+
+  async tongmon(i) {
+    const p = getPlayer(i); if (!p) return;
+    const sub = i.options.getSubcommand(), uid = i.user.id;
+    if (sub === 'thongtin') return i.reply({ embeds: [guildEmbed(p)] });
+    if (sub === 'xephang') {
+      const top = Object.values(db.guilds).sort((a, b) => b.lv - a.lv || b.exp - a.exp || b.members.length - a.members.length).slice(0, 10);
+      return i.reply({ embeds: [embed(0xd35400).setTitle('🏯 Bảng xếp hạng tông môn')
+        .setDescription(top.map((g, n) => `**${n + 1}.** ${g.name} – Cấp ${g.lv} • 👥 ${g.members.length} • 👑 ${db.players[g.leader]?.name || '???'}`).join('\n') || '*Chưa có tông môn nào*')] });
+    }
+    let r;
+    if (sub === 'taolap') r = guildCreate(p, uid, i.options.getString('ten'));
+    else if (sub === 'thamgia') r = guildJoin(p, uid, i.options.getString('ten'));
+    else if (sub === 'roi') r = guildLeave(p, uid);
+    else r = guildDonate(p, i.options.getInteger('vang'));
+    save();
+    return i.reply({ content: r.msg, flags: r.ok && sub !== 'donggop' ? undefined : EPH });
+  },
+
+  async cho(i) {
+    const p = getPlayer(i); if (!p) return;
+    const sub = i.options.getSubcommand(), uid = i.user.id;
+    let r;
+    if (sub === 'xem') return i.reply({ ...marketView(p, uid, i.options.getString('loai')), flags: EPH });
+    if (sub === 'cuatoi') {
+      const mine = Object.values(marketSync().list).filter((l) => l.seller === uid);
+      return i.reply({ content: mine.length ? mine.map((l) => `**#${l.id}** ${label(l.item)} x${l.qty} – ${fmt(l.price)}/cái`).join('\n') : 'Bạn chưa đăng bán món nào.', flags: EPH });
+    }
+    if (sub === 'dang') r = marketPost(p, uid, i.options.getString('vatpham'), i.options.getInteger('soluong') || 1, i.options.getInteger('gia'));
+    else if (sub === 'mua') r = marketBuy(p, uid, i.options.getInteger('ma'));
+    else r = marketCancel(p, uid, i.options.getInteger('ma'));
+    save();
+    return i.reply({ content: r.msg, flags: EPH });
   },
 
   async trogiup(i) {
@@ -1113,6 +1731,14 @@ const handlers = {
         '**Mỗi phái có đồ riêng:** vũ khí, giáp, 🔱 pháp bảo, 🧧 bùa hộ thân với hiệu ứng đặc biệt (chí mạng, né, phản đòn, hút máu, triệu thiên lôi...).',
         '**Cường hóa:** `/cuonghoa` – lên đến +15, tỉ lệ giảm dần. Thất bại có thể **tụt cấp, bị sét đánh, vỡ đồ**! Dùng 🍀 Thiên Vận Phù (+10%) và 🧿 Phù Bảo Hộ để an toàn.',
         '**Độ kiếp:** mỗi 10 cấp bạn chạm bình cảnh. Dùng `/dokiep` để chịu thiên lôi, vượt qua sẽ đột phá cảnh giới (+10% chỉ số gốc).',
+        '**Trấn Yêu Tháp:** `/thap` – leo từng tầng, mỗi 10 tầng có boss, thua không mất vàng. `/thap bxh` xem xếp hạng.',
+        '**Boss Thế Giới:** `/bosstg` – cả server cùng đánh một boss, chia thưởng theo sát thương.',
+        '**Tông môn:** `/tongmon` – lập/gia nhập, cống hiến vàng để nâng cấp, cả nhóm cùng được cộng % chỉ số.',
+        '**Chợ:** `/cho xem|dang|mua|huy` – mua bán vật phẩm với người chơi khác (phí 5%).',
+        '**Thành tựu:** `/thanhtuu` – mở khóa danh hiệu cộng % chỉ số. Săn yêu ma còn có sự kiện ngẫu nhiên!',
+        '**Đệ tử:** `/trieuhoi` (Thu Sinh, Văn Tài, Nhậm Đình Đình, Tiểu Cương Thi...) rồi `/dedu` để chọn người đồng hành. Trùng đệ tử sẽ lên sao.',
+        '**Khảm ngọc:** `/khamngoc` – mỗi trang bị có 1–3 ô khảm. Ngọc rơi từ yêu ma, bán ở tiệm, gộp 3 → 1 bằng `/chetao`.',
+        '**Võ đài:** `/thachdau @người [cược]` – đấu tự động, không mất HP/đồ, thắng nhận danh vọng (`/bxh loai:Danh vọng`).',
         '**Chế tạo:** `/chetao` – nguyên liệu rớt từ yêu ma (Lôi Thạch, Huyết Ngọc...) để chế đồ bậc cao.',
         '**Hằng ngày:** `/diemdanh`, `/nhiemvu`, `/toathien`. Xếp hạng: `/bxh`.',
         '', '**Khu vực săn:**', mapList,
@@ -1132,10 +1758,11 @@ async function handleAuto(i) {
     case 'ban': ids = inv; break;
     case 'dung': ids = inv.filter((id) => ITEMS[id].type === 'potion'); break;
     case 'trangbi': ids = inv.filter((id) => SLOT_OF[ITEMS[id].type] && mineCls(id)); break;
-    case 'cuonghoa': ids = [...new Set([...inv, ...Object.values(p?.equip || {})])].filter((id) => id && canEnhance(id)); break;
+    case 'khamngoc': case 'cuonghoa': ids = [...new Set([...inv, ...Object.values(p?.equip || {})])].filter((id) => id && canEnhance(id)); break;
     case 'chetao': ids = Object.keys(RECIPES).filter(mineCls); break;
+    case 'cho': ids = inv; break;
   }
-  const showQty = ['ban', 'dung', 'trangbi'].includes(i.commandName);
+  const showQty = ['ban', 'dung', 'trangbi', 'cho'].includes(i.commandName);
   return i.respond(ids
     .filter((id) => norm(ITEMS[id].name).includes(q) || id.toLowerCase().includes(q))
     .slice(0, 25)
@@ -1165,7 +1792,7 @@ async function handleButton(i) {
 
   switch (kind) {
     case 'again': {
-      const r = beginFight(uid, p, parts[1]);
+      const r = parts[1] === 'thap' ? beginTower(uid, p) : beginFight(uid, p, parts[1]);
       if (r.error) return i.reply({ content: r.error, flags: EPH });
       return i.update(fightView(uid, p, r.fight));
     }
@@ -1175,11 +1802,29 @@ async function handleButton(i) {
       if (!owns(p, parts[1])) return i.update({ content: '❌ Món này không còn nữa.', embeds: [], components: [] });
       return i.update(enhView(p, uid, parts[1]));
     case 'kiep': return runKiep(i, uid, p, +parts[1]);
+    case 'wb': {
+      if (parts[1] === 'spawn') {
+        const r = wbSpawn();
+        if (r.error) return i.update(wbView(p, uid, [r.error]));
+        try { await i.channel?.send(`🌍 **${i.user.displayName}** đã triệu hồi **${db.wb.emoji} ${db.wb.name}**! Mọi người hãy dùng \`/bosstg\` để cùng hạ nó trong 3 giờ!`); } catch { /* không có quyền gửi */ }
+        save();
+        return i.update(wbView(p, uid, ['🌟 Boss Thế Giới xuất hiện!']));
+      }
+      if (parts[1] === 'hit') {
+        wbSync();
+        const r = wbAttack(p, uid);
+        save();
+        return i.update(wbView(p, uid, r.error ? [r.error] : r.lines));
+      }
+      return i.update(wbView(p, uid));
+    }
+    case 'duel': return runDuel(i, parts[2], uid, +parts[3], parts[1] === 'acc');
   }
 }
 
 async function handleSelect(i) {
-  const [kind, uid] = i.customId.split(':');
+  const parts = i.customId.split(':');
+  const kind = parts[0], uid = parts[parts.length - 1];
   if (uid !== i.user.id) return i.reply({ content: '🚫 Đây không phải của bạn!', flags: EPH });
   const p = db.players[uid];
   if (!p) return i.reply({ content: 'Bạn chưa có nhân vật.', flags: EPH });
@@ -1187,6 +1832,36 @@ async function handleSelect(i) {
   if (kind === 'shopcat') return i.update(shopView(p, uid, v));
   if (kind === 'shop') return i.reply({ content: buy(p, v, 1), flags: EPH });
   if (kind === 'ct') return v === 'none' ? i.deferUpdate() : runCombatAction(i, uid, p, `use:${v}`);
+  if (kind === 'titleset') {
+    p.title = v === 'none' ? null : v;
+    const s2 = stats(p); p.hp = Math.min(p.hp, s2.maxHp); save();
+    return i.update(achView(p, uid));
+  }
+  if (kind === 'chobuy') {
+    const r = marketBuy(p, uid, +v); save();
+    return i.reply({ content: r.msg, flags: EPH });
+  }
+  if (kind === 'petset') {
+    p.pet = v === 'none' ? null : v; save();
+    return i.update(petView(p, uid));
+  }
+  if (kind === 'gemput' || kind === 'gemrm') {
+    const id = parts[1];
+    if (fights.has(uid)) return i.reply({ content: '⚔️ Đang trong trận chiến!', flags: EPH });
+    if (!canEnhance(id) || !owns(p, id)) return i.update({ content: '❌ Món này không còn nữa.', embeds: [], components: [] });
+    p.gems[id] ??= [];
+    if (kind === 'gemput') {
+      if (p.gems[id].length >= socketsOf(id)) return i.reply({ content: '⬜ Trang bị này đã hết ô khảm.', flags: EPH });
+      if (!count(p, v) || ITEMS[v]?.type !== 'gem') return i.reply({ content: '❌ Bạn không có ngọc này.', flags: EPH });
+      removeItem(p, v); p.gems[id].push(v);
+    } else {
+      const g = p.gems[id].splice(+v, 1)[0];
+      if (g) addItem(p, g);
+      const s2 = stats(p); p.hp = Math.min(p.hp, s2.maxHp); p.mp = Math.min(p.mp, s2.maxMp);
+    }
+    save();
+    return i.update(gemView(p, uid, id));
+  }
 }
 
 /* ═══════════════════════════ KHỞI ĐỘNG ═══════════════════════════ */
@@ -1208,9 +1883,17 @@ client.once(Events.ClientReady, async (c) => {
 client.on(Events.InteractionCreate, async (i) => {
   try {
     if (i.isAutocomplete()) return await handleAuto(i);
-    if (i.isChatInputCommand()) return await handlers[i.commandName]?.(i);
-    if (i.isButton()) return await handleButton(i);
-    if (i.isStringSelectMenu()) return await handleSelect(i);
+    if (i.isChatInputCommand()) await handlers[i.commandName]?.(i);
+    else if (i.isButton()) await handleButton(i);
+    else if (i.isStringSelectMenu()) await handleSelect(i);
+    else return;
+    // Thông báo thành tựu mới (nếu có)
+    const pl = db.players[i.user.id];
+    const got = pl?.ach ? checkAch(pl) : [];
+    if (got.length) {
+      save();
+      try { await i.followUp({ content: `🏅 **Thành tựu mới!**\n${got.join('\n')}\nDùng \`/thanhtuu\` để đeo danh hiệu.`, flags: EPH }); } catch { /* bỏ qua */ }
+    }
   } catch (e) {
     console.error(e);
     const msg = { content: '⚠️ Có lỗi xảy ra, thử lại sau nhé!', flags: EPH };
@@ -1222,5 +1905,5 @@ if (require.main === module) {
   if (!process.env.DISCORD_TOKEN) { console.error('❌ Thiếu DISCORD_TOKEN trong file .env'); process.exit(1); }
   client.login(process.env.DISCORD_TOKEN);
 } else {
-  module.exports = { ITEMS, RECIPES, GEAR, CLASSES, MAPS, newPlayer, stats, perks, beginFight, act, fightView, enhanceAttempt, enhView, shopView, simKiep, kiepView, gainExp, migrate, buy, fights, capOf, atBottleneck, expNeed, ENH_RATE, handlers };
+  module.exports = { ITEMS, RECIPES, GEAR, CLASSES, MAPS, newPlayer, stats, perks, beginFight, act, fightView, enhanceAttempt, enhView, shopView, simKiep, kiepView, gainExp, migrate, buy, fights, capOf, atBottleneck, expNeed, ENH_RATE, handlers, PETS, summonOnce, simulateDuel, gemView, gemStats, socketsOf, petScale, petView, ACH, checkAch, titleBonus, beginTower, towerMonster, wbSync, wbSpawn, wbAttack, settleWb, db, guildCreate, guildJoin, guildLeave, guildDonate, guildBonus, marketPost, marketBuy, marketCancel, marketSync, randomEvent, achView, wbView, marketView };
 }
