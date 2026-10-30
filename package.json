@@ -1,6 +1,6 @@
 {
   "name": "dao-si-bot",
-  "version": "3.0.0",
+  "version": "4.1.0",
   "description": "Bot RPG Discord Đạo Sĩ trừ tà - lấy cảm hứng từ phim Cương Thi Tiên Sinh",
   "main": "index.js",
   "scripts": { "start": "node index.js" },
