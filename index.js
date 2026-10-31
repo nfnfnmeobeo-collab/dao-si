@@ -1,7 +1,7 @@
-// ☯️ ĐẠO SĨ BOT v4.3 – Bot RPG Discord lấy cảm hứng từ phim "Cương Thi Tiên Sinh"
+// ☯️ ĐẠO SĨ BOT v4.4 – Bot RPG Discord lấy cảm hứng từ phim "Cương Thi Tiên Sinh"
 // Nhân vật: 18 môn phái, 3 phe, VIP/Nguyên Bảo • Đồ: riêng từng phái, pháp bảo, bùa, lệnh bài phe
 // Nâng cấp: cường hóa +15 (sét đánh), luyện tuyệt kỹ, thăng phẩm, tinh luyện, khảm ngọc, công pháp, độ thiên kiếp, tiến hóa đệ tử
-// Hoạt động: săn 6 khu vực, Trấn Yêu Tháp, boss thế giới, võ đài PvP, tông môn, chợ, 16 cửa hàng, rương, bùa phúc, thành tựu
+// Hoạt động: săn 6 khu vực, Trấn Yêu Tháp, boss thế giới, võ đài PvP, tông môn, chợ, 16 cửa hàng, rương, bùa phúc, nhiệm vụ theo phái & cảnh giới, thành tựu
 // Dữ liệu: tự lưu + ghi nguyên tử + sao lưu 30 phút/lần + tự khôi phục khi file hỏng
 // Yêu cầu: Node.js 18+ và discord.js v14
 
@@ -699,6 +699,10 @@ process.on('SIGTERM', () => { saveNow(); process.exit(0); });
 
 // Nâng cấp dữ liệu cũ (v2 → v3)
 function migrate(p) {
+  if (p.quest && !p.quest.type) { // chuyển nhiệm vụ kiểu cũ sang kiểu mới
+    const o = p.quest;
+    p.quest = { type: 'kill', need: o.need, done: o.done, realm: Math.min(p.realm || 0, 5), cls: p.cls, giver: 'Cửu Thúc', text: `Diệt ${o.need} yêu ma`, t: Date.now(), reward: { gold: o.gold || 300, exp: o.exp || 100, items: [], nb: 0 } };
+  }
   p.inv ??= {}; p.equip ??= {}; p.buffs ??= {}; p.skl ??= {}; p.equip.badge ??= null; p.fac ??= null; p.facAt ??= 0; p.nb ??= 0; p.vipPts ??= 0; p.lastVip ??= 0; p.vd ??= 0; p.tl ??= 0; p.gp ??= 0; p.aff ??= {}; p.grade ??= {}; p.tech ??= {}; p.shopLog ??= { day: 0, counts: {} };
   p.enh ??= {}; p.lastKiep ??= 0; p.kiepDone ??= 0; p.gems ??= {}; p.pets ??= {}; p.pet ??= null; p.honor ??= 0; p.pity ??= 0; p.lastDuel ??= 0; p.title ??= null; p.ach ??= {}; p.guild ??= null; p.contrib ??= 0; p.towerBest ??= 0; p.duelWins ??= 0; p.wbHits ??= 0; p.wbKills ??= 0; p.lastWb ??= 0;
   p.realm ??= Math.min(5, Math.floor(p.level / 10));
@@ -904,7 +908,7 @@ function winRewards(p, f) {
     const id = resolveDrop(key, p.cls, p.fac);
     if (!id) continue;
     const n = max > 1 ? rand(1, max) : 1;
-    addItem(p, id, n);
+    addItem(p, id, n); questProg(p, 'drop', n);
     lines.push(`🎁 Nhặt được ${label(id)}${n > 1 ? ` x${n}` : ''}`);
   }
   if (!f.tower && Math.random() < 0.1) lines.push(randomEvent(p));
@@ -916,10 +920,12 @@ function winRewards(p, f) {
   const ups = gainExp(p, expGain);
   if (ups) lines.push(`🎉 **LÊN CẤP ${p.level}!** HP và linh lực hồi đầy.`);
   if (atBottleneck(p)) lines.push(`⚡ **Bạn đã chạm bình cảnh ${REALMS[p.realm]}!** Hãy dùng \`/dokiep\` để đột phá.`);
-  if (p.quest && p.quest.done < p.quest.need) {
-    p.quest.done++;
-    lines.push(`📋 Nhiệm vụ: ${p.quest.done}/${p.quest.need}${p.quest.done >= p.quest.need ? ' – dùng `/nhiemvu` để nhận thưởng!' : ''}`);
-  }
+  questProg(p, 'kill', 1, { map: f.map, tower: f.tower });
+  if (m.undead) questProg(p, 'undead');
+  if (f.boss) questProg(p, 'boss');
+  questProg(p, 'gold', gold);
+  if (f.tower) questProg(p, 'tower');
+  const ql = questLine(p); if (ql) lines.push(ql);
   return lines.join('\n');
 }
 
@@ -930,7 +936,7 @@ function act(p, f, action) {
   const heal = (n) => { const b = p.hp; p.hp = Math.min(s.maxHp, p.hp + n); return p.hp - b; };
   const hit = (mult = 1, ignoreDef = false, ls = 0) => {
     const r = calcDmg(s.atk, m.def, { mult: mult * (m.undead ? 1 + (FACTIONS[p.fac]?.vsUndead || 0) : 1), ignoreDef, critC });
-    f.mHp -= r.dmg;
+    f.mHp -= r.dmg; if (r.crit) questProg(p, 'crit');
     if (pk.lifesteal + ls > 0) heal(Math.round(r.dmg * (pk.lifesteal + ls)));
     return r;
   };
@@ -941,7 +947,7 @@ function act(p, f, action) {
       log.push(`⚡ Pháp bảo triệu **thiên lôi** giáng xuống, thêm **${d}** sát thương!`);
     }
   };
-  const stunMonster = (n) => { f.stun = Math.max(f.stun, f.boss ? Math.min(n, 1) : n); };
+  const stunMonster = (n) => { questProg(p, 'stun'); f.stun = Math.max(f.stun, f.boss ? Math.min(n, 1) : n); };
   const winNow = () => {
     if (f.mHp > 0) return false;
     f.mHp = 0; f.over = 'win'; f.log = log; f.rewards = winRewards(p, f);
@@ -958,14 +964,15 @@ function act(p, f, action) {
     if (!sk) return { error: '❌ Tuyệt kỹ không tồn tại.' };
     if (p.level < sk.lv) return { error: `🔒 Cần cấp ${sk.lv} để dùng ${sk.name}.` };
     if (p.mp < sk.cost) return { error: '🔷 Không đủ linh lực!' };
-    p.mp -= sk.cost;
+    p.mp -= sk.cost; questProg(p, 'skill');
     const hits = sk.hits || 1; let total = 0, crits = 0;
     for (let h = 0; h < hits; h++) { const r = hit(skillMult(p, sk) * (m.undead && sk.vsUndead ? sk.vsUndead : 1), sk.ignoreDef, sk.lifesteal || 0); total += r.dmg; if (r.crit) crits++; }
     log.push(`✨ **${sk.name}**${hits > 1 ? ` (${hits} đòn)` : ''}: **${total}** sát thương${crits ? ` 💥x${crits}` : ''}`);
     thunder();
+    if (sk.heal) questProg(p, 'heal');
     if (sk.heal) log.push(`💚 Hồi **${heal(Math.round(s.maxHp * sk.heal))}** HP`);
     if (sk.stun && Math.random() < sk.stun) { stunMonster(1); log.push(`💫 ${m.name} choáng váng!`); }
-    if (sk.burn) { f.burn = { d: Math.max(1, Math.round(s.atk * sk.burn.atkPct)), t: sk.burn.t }; log.push(`🔥 ${m.name} bốc cháy!`); }
+    if (sk.burn) { questProg(p, 'burn'); f.burn = { d: Math.max(1, Math.round(s.atk * sk.burn.atkPct)), t: sk.burn.t }; log.push(`🔥 ${m.name} bốc cháy!`); }
     if (sk.shield) { f.shield = { ...sk.shield }; log.push(`🛡️ Kim quang hộ thể, giảm ${pct(sk.shield.pct)} sát thương!`); }
     if (sk.curse) { f.curse = { ...sk.curse }; log.push(`☠️ ${m.name} bị nguyền rủa, yếu đi ${pct(sk.curse.pct)} sức mạnh!`); }
   } else if (action === 'run') {
@@ -975,14 +982,15 @@ function act(p, f, action) {
     const id = action.slice(4), it = ITEMS[id], u = it?.use;
     if (!u || !count(p, id)) return { error: '❌ Bạn không có vật phẩm này!' };
     if (it.cls && it.cls !== p.cls) return { error: '⛔ Vật phẩm này dành cho môn phái khác.' };
-    removeItem(p, id);
+    removeItem(p, id); if (it.type === 'talisman') questProg(p, 'talisman');
     log.push(`${it.emoji} Bạn dùng **${it.name}**:`);
+    if (u.heal || u.healPct) questProg(p, 'heal');
     if (u.heal) log.push(`💊 Hồi **${heal(Math.round(u.heal * (cls.potBoost || 1)))}** HP`);
     if (u.healPct) log.push(`💚 Hồi **${heal(Math.round(s.maxHp * u.healPct))}** HP`);
     if (u.mana) { const b = p.mp; p.mp = Math.min(s.maxMp, p.mp + u.mana); log.push(`🔷 Hồi **${p.mp - b}** linh lực`); }
     if (u.stun) { stunMonster(u.stun); log.push(`📜 ${m.name} bị định thân!`); }
     if (u.shield) { f.shield = { ...u.shield }; log.push(`🛡️ Giảm ${pct(u.shield.pct)} sát thương trong ${u.shield.t} lượt`); }
-    if (u.burn) { f.burn = { d: Math.max(1, Math.round(s.atk * u.burn.atkPct)), t: u.burn.t }; log.push(`🔥 ${m.name} bốc cháy!`); }
+    if (u.burn) { questProg(p, 'burn'); f.burn = { d: Math.max(1, Math.round(s.atk * u.burn.atkPct)), t: u.burn.t }; log.push(`🔥 ${m.name} bốc cháy!`); }
     if (u.dmg || u.dmgAtk) {
       let d = u.dmgAtk ? Math.round(s.atk * u.dmgAtk) : u.dmg + (u.perLevel || 0) * p.level;
       if (u.undeadOnly && !m.undead) d = u.fallback;
@@ -1132,7 +1140,7 @@ function enhanceAttempt(p, id, mode) {
   const rate = Math.min(0.98, ENH_RATE[t] + (useLuck ? 0.1 : 0));
   const lines = [];
   if (Math.random() < rate) {
-    p.enh[id] = t;
+    p.enh[id] = t; questProg(p, 'enhance');
     lines.push(`🎉 **THÀNH CÔNG!** ${label(id)} lên **+${t}**!`);
     if (t >= 8) lines.push('🌩️ Lôi quang bao phủ, pháp khí rung lên ánh sáng chói lòa!');
     return { ok: true, lines, exists: true };
@@ -1407,7 +1415,7 @@ async function runDuel(i, cid, tid, bet, accept) {
   }
   const W = res.winner === 'a' ? a : b, L = res.winner === 'a' ? b : a, WS = res.winner === 'a' ? res.A : res.B;
   const gain = Math.max(8, Math.min(30, 15 + Math.round((L.honor - W.honor) / 20)));
-  W.honor += gain; W.duelWins++; W.vd += 10; L.vd += 3; L.honor = Math.max(0, L.honor - 8);
+  W.honor += gain; W.duelWins++; questProg(W, 'duel'); W.vd += 10; L.vd += 3; L.honor = Math.max(0, L.honor - 8);
   if (bet) { W.gold += bet; L.gold -= bet; }
   save();
   const e = duelEmbed(a, b, res.log, 0xf1c40f)
@@ -1566,7 +1574,7 @@ function wbAttack(p, uid) {
     mp = Math.min(s.maxMp, mp + 3 + pk.regen);
   }
   total = Math.min(total, w.hp);
-  w.hp -= total; w.hits[uid] = (w.hits[uid] || 0) + total; p.wbHits++; p.lastWb = Date.now();
+  w.hp -= total; w.hits[uid] = (w.hits[uid] || 0) + total; p.wbHits++; questProg(p, 'wb'); p.lastWb = Date.now();
   const lines = [`⚔️ Bạn tung chuỗi đòn (${skillUses} tuyệt kỹ), gây **${fmt(total)}** sát thương lên **${w.name}**!`];
   if (w.hp <= 0) { w.hp = 0; return { lines: [...lines, '', ...settleWb(w, true, uid)], killed: true }; }
   return { lines };
@@ -2122,6 +2130,133 @@ function sklView(p, uid, note = '') {
   return { content: '', embeds: [e], components: [row(btn(0), btn(1), btn(2))] };
 }
 
+/* ═══════════════════════════ NHIỆM VỤ THEO PHÁI & CẢNH GIỚI ═══════════════════════════ */
+// Mỗi phái có người giao việc, lời nhắn và loại nhiệm vụ ưa thích riêng. Cảnh giới càng cao: nhiều loại nhiệm vụ
+// khó mở ra, số lượng yêu cầu và phần thưởng lớn hơn.
+const CLASS_QUEST = {
+  maoson:     { giver: 'Cửu Thúc', types: ['undead', 'talisman'], line: 'Yêu khí dâng cao, ngươi hãy thay ta trừ tà vệ đạo.' },
+  phuchu:     { giver: 'Phù Chú Tổ Sư', types: ['talisman', 'skill'], line: 'Chu sa đã sẵn, hãy vẽ phù thật chuẩn để diệt yêu.' },
+  vodao:      { giver: 'Sư Phụ Võ Quán', types: ['stun', 'duel'], line: 'Luyện võ phải lên đài, ra đòn phải trúng đích.' },
+  thieulam:   { giver: 'Phương Trượng', types: ['undead', 'heal'], line: 'A Di Đà Phật, mong thí chủ độ hóa oan hồn và cứu người.' },
+  thucson:    { giver: 'Chưởng Môn Thục Sơn', types: ['skill', 'boss'], line: 'Kiếm tu phải lấy chiêu thức mà luận đạo, hãy chém đại yêu.' },
+  nguthi:     { giver: 'Lão Thi Sư', types: ['undead', 'drop'], line: 'Cương thi là bạn của ta, nhưng yêu ma thì không. Đi thu về xương cốt.' },
+  quydao:     { giver: 'Quỷ Đạo Lão Tổ', types: ['burn', 'crit'], line: 'Cho chúng cháy rụi, cho chúng biết thế nào là đau.' },
+  caibang:    { giver: 'Bang Chủ Cái Bang', types: ['gold', 'drop'], line: 'Bang ta nghèo, nhờ đệ tử đi kiếm chút bạc và đồ về nuôi anh em.' },
+  duocvuong:  { giver: 'Dược Vương Cốc Chủ', types: ['heal', 'drop'], line: 'Thuốc quý cần dược liệu, vừa chữa người vừa nhặt thảo dược.' },
+  duongmon:   { giver: 'Đường Môn Trưởng Lão', types: ['crit', 'skill'], line: 'Ám khí quý ở chỗ trúng chỗ hiểm, hãy luyện cho chuẩn.' },
+  phongthuy:  { giver: 'Phong Thủy Sư', types: ['skill', 'drop'], line: 'Thiên cơ chỉ dẫn, nơi nào có yêu khí nơi đó có bảo vật.' },
+  cosu:       { giver: 'Cổ Sư Trưởng Lão', types: ['burn', 'undead'], line: 'Cổ trùng cần vật nuôi, hãy thiêu đốt rồi mang xác yêu về.' },
+  vodang:     { giver: 'Chưởng Môn Võ Đang', types: ['duel', 'skill'], line: 'Lấy nhu thắng cương, hãy ra đài rèn thái cực.' },
+  ngami:      { giver: 'Sư Thái Nga Mi', types: ['heal', 'undead'], line: 'Cứu người độ thế, hãy hồi phục cho mình và trừ ác ma.' },
+  hoason:     { giver: 'Chưởng Môn Hoa Sơn', types: ['crit', 'duel'], line: 'Kiếm Hoa Sơn nhanh và chuẩn, hãy lên đài chứng minh.' },
+  minhgiao:   { giver: 'Giáo Chủ Minh Giáo', types: ['burn', 'undead'], line: 'Thánh hỏa thiêu rụi tà ma, hỡi sứ giả hãy hành động.' },
+  conlon:     { giver: 'Chưởng Môn Côn Lôn', types: ['stun', 'boss'], line: 'Băng phong vạn dặm, hãy đóng băng đại yêu cho ta.' },
+  thiencogac: { giver: 'Thiên Cơ Lão Nhân', types: ['drop', 'gold'], line: 'Quẻ báo ngươi sắp gặp may, hãy ra ngoài nhặt vận.' },
+};
+const REALM_ADDR = ['đệ tử Luyện Khí', 'đạo hữu Trúc Cơ', 'chân nhân Kết Đan', 'đại năng Nguyên Anh', 'tiền bối Hóa Thần', 'thiên tôn Phản Hư'];
+// Phần thưởng vật phẩm theo cảnh giới
+const REALM_REWARD = [
+  [['linhthach', 2], ['linhdan', 3]],
+  [['linhthach', 4], ['tuvi1', 1], ['phutranthi', 3]],
+  [['linhthach', 6], ['loithach', 2], ['tuvi2', 1]],
+  [['loithach', 4], ['huyetngoc', 1], ['phubaoho', 1]],
+  [['huyetngoc', 2], ['thienvanphu', 2], ['tuvi3', 1]],
+  [['huyetngoc', 4], ['phubaoho', 2], ['tuvi3', 2]],
+];
+const QTYPES = {
+  kill:     { base: 8,  diff: 1.0,  min: 0, text: (n) => `Diệt ${n} yêu ma` },
+  killmap:  { base: 10, diff: 1.15, min: 0, text: (n, q) => `Diệt ${n} yêu ma tại ${MAPS[q.map].emoji} ${MAPS[q.map].name}` },
+  undead:   { base: 6,  diff: 1.1,  min: 0, text: (n) => `Trừ tà: diệt ${n} cương thi / ma quỷ` },
+  boss:     { base: 1,  diff: 2.0,  min: 1, text: (n) => `Hạ gục ${n} boss` },
+  skill:    { base: 15, diff: 0.9,  min: 0, text: (n) => `Thi triển tuyệt kỹ ${n} lần trong chiến đấu` },
+  talisman: { base: 5,  diff: 1.0,  min: 0, text: (n) => `Dùng ${n} lá phù chú trong chiến đấu` },
+  heal:     { base: 5,  diff: 0.9,  min: 0, text: (n) => `Hồi phục sinh lực ${n} lần (đan dược hoặc chiêu hồi máu)` },
+  crit:     { base: 12, diff: 1.0,  min: 0, text: (n) => `Tung ${n} đòn chí mạng` },
+  stun:     { base: 5,  diff: 1.0,  min: 0, text: (n) => `Làm yêu ma choáng / định thân ${n} lần` },
+  burn:     { base: 5,  diff: 1.0,  min: 0, text: (n) => `Thiêu đốt yêu ma ${n} lần` },
+  gold:     { base: 0,  diff: 1.0,  min: 0, text: (n) => `Kiếm ${fmt(n)} vàng từ săn yêu` },
+  drop:     { base: 6,  diff: 1.0,  min: 0, text: (n) => `Nhặt ${n} vật phẩm rơi từ yêu ma` },
+  duel:     { base: 1,  diff: 1.5,  min: 1, text: (n) => `Thắng ${n} trận võ đài` },
+  tower:    { base: 2,  diff: 1.4,  min: 1, text: (n) => `Leo thêm ${n} tầng Trấn Yêu Tháp` },
+  enhance:  { base: 2,  diff: 1.3,  min: 1, text: (n) => `Cường hóa thành công ${n} lần` },
+  craft:    { base: 2,  diff: 1.0,  min: 1, text: (n) => `Chế tạo ${n} lần ở lò luyện` },
+  wb:       { base: 2,  diff: 1.5,  min: 2, text: (n) => `Tấn công Boss Thế Giới ${n} lần` },
+};
+const dayKey = () => Math.floor((Date.now() + 7 * 3600000) / 86400000);
+const dailyN = (p) => (p.qDay?.day === dayKey() ? p.qDay.n : 0);
+function bestMap(p) {
+  const ms = Object.entries(MAPS).filter(([, m]) => m.lv <= p.level).sort((a, b) => b[1].lv - a[1].lv);
+  return (ms[0] || Object.entries(MAPS)[0])[0];
+}
+function genQuest(p, exclude) {
+  const r = Math.min(p.realm || 0, 5), cq = CLASS_QUEST[p.cls] || { giver: 'Cửu Thúc', types: [], line: 'Hãy giúp ta trừ yêu.' };
+  const pool = [];
+  for (const [type, d] of Object.entries(QTYPES)) {
+    if (d.min > r || type === exclude) continue;
+    const w = cq.types.includes(type) ? 8 : 3;
+    for (let k = 0; k < w; k++) pool.push(type);
+  }
+  const type = pick(pool), d = QTYPES[type], jit = 0.85 + Math.random() * 0.3;
+  const need = type === 'gold' ? Math.round((100 + p.level * 60) * (1 + 0.45 * r) * jit) : Math.max(1, Math.round(d.base * (1 + 0.45 * r) * jit));
+  const q = { type, need, done: 0, realm: r, cls: p.cls, giver: cq.giver, t: Date.now() };
+  if (type === 'killmap') q.map = bestMap(p);
+  if (type === 'tower') q.start = p.towerBest;
+  q.text = d.text(need, q);
+  // phần thưởng: tăng theo cảnh giới, độ khó của loại nhiệm vụ
+  const mult = d.diff * (1 + 0.5 * r);
+  const items = REALM_REWARD[r].map(([id, n]) => [id, Math.max(1, Math.round(n * d.diff))]);
+  if (Math.random() < 0.15) { const id = gearId(p.cls, pick(['treasure', 'charm']), Math.min(2, Math.floor(r / 2))); if (id) items.push([id, 1]); }
+  q.reward = { gold: Math.round((200 + p.level * 40) * mult), exp: Math.round(expNeed(p.level) * (0.08 + 0.02 * r) * d.diff), items, nb: r >= 3 ? 3 * (r - 2) : 0 };
+  return q;
+}
+function questProg(p, ev, n = 1, info = {}) {
+  const q = p.quest;
+  if (!q || q.done >= q.need) return;
+  if (q.type === 'tower') {
+    if (ev !== 'tower') return;
+    const d = Math.min(q.need, Math.max(0, p.towerBest - (q.start || 0)));
+    if (d > q.done) { q.done = d; q.changed = true; }
+    return;
+  }
+  let add = 0;
+  if (q.type === 'kill' && ev === 'kill') add = 1;
+  else if (q.type === 'killmap' && ev === 'kill' && !info.tower && info.map === q.map) add = 1;
+  else if (q.type === ev) add = n;
+  if (add) { q.done = Math.min(q.need, q.done + add); q.changed = true; }
+}
+function questLine(p) {
+  const q = p.quest;
+  if (!q || !q.changed) return null;
+  q.changed = false;
+  return q.done >= q.need ? '📋 **Nhiệm vụ hoàn thành!** Dùng `/nhiemvu` để nhận thưởng.' : `📋 Nhiệm vụ: ${q.done}/${q.need}`;
+}
+function questRewardText(q) {
+  const r = q.reward, parts = [`💰 ${fmt(r.gold)}`, `✨ ${fmt(r.exp)} EXP`];
+  for (const [id, n] of r.items) parts.push(`${label(id)} x${n}`);
+  if (r.nb) parts.push(`💎 ${r.nb} Nguyên Bảo`);
+  return parts.join(' • ');
+}
+function questEmbed(p, note = '') {
+  const q = p.quest, c = CLASSES[p.cls], cq = CLASS_QUEST[p.cls] || { line: '' };
+  const done = q.done >= q.need;
+  return embed(done ? 0x2ecc71 : 0x3498db).setTitle(`📋 Nhiệm vụ • ${c.emoji} ${c.name} • ${REALMS[q.realm]}`)
+    .setDescription(`${note ? `${note}\n\n` : ''}*"${q.giver} nhắn ${REALM_ADDR[q.realm]}: ${cq.line}"*\n\n**${q.text}**\n${bar(q.done, q.need)} ${q.done}/${q.need}\n\n🎁 Thưởng: ${questRewardText(q)}\n${done ? '✅ **Hoàn thành!** Gõ /nhiemvu để nhận thưởng.' : `🔁 Đổi nhiệm vụ: /nhiemvu hanh_dong:Đổi (tốn ${fmt(500 * (q.realm + 1))} vàng)`}\n📅 Hôm nay đã hoàn thành: **${dailyN(p)}/3** (đủ 3 nhiệm vụ nhận thêm quà)`);
+}
+function claimQuest(p) {
+  const q = p.quest, r = q.reward, lines = [`💰 +${fmt(r.gold)} vàng`, `✨ +${fmt(r.exp)} EXP`];
+  p.gold += r.gold;
+  for (const [id, n] of r.items) { addItem(p, id, n); lines.push(`🎁 ${label(id)} x${n}`); }
+  if (r.nb) { p.nb += r.nb; lines.push(`💎 +${r.nb} Nguyên Bảo`); }
+  if (gainExp(p, r.exp)) lines.push(`🎉 **LÊN CẤP ${p.level}!**`);
+  p.questDone = (p.questDone || 0) + 1;
+  const dk = dayKey();
+  if (p.qDay?.day !== dk) p.qDay = { day: dk, n: 0 };
+  p.qDay.n++;
+  if (p.qDay.n === 3) { const lt = 3 + 2 * q.realm; addItem(p, 'linhthach', lt); p.nb += 5; lines.push(`🌟 **Đủ 3 nhiệm vụ hôm nay:** +${lt} 💠 Linh Thạch, +5 💎 Nguyên Bảo!`); }
+  p.quest = null;
+  return lines;
+}
+
 /* ═══════════════════════════ ĐỊNH NGHĨA LỆNH ═══════════════════════════ */
 const itemOpt = (o, desc = 'Chọn vật phẩm', req = true) => o.setName('vatpham').setDescription(desc).setRequired(req).setAutocomplete(true);
 const qtyOpt = (o) => o.setName('soluong').setDescription('Số lượng (mặc định 1)').setMinValue(1).setMaxValue(99);
@@ -2157,7 +2292,8 @@ const commands = [
       .addChoices(...Object.entries(MAPS).map(([value, m]) => ({ name: `${m.emoji} ${m.name} (Lv ${m.lv}+)`, value })))),
   new SlashCommandBuilder().setName('diemdanh').setDescription('🗓️ Điểm danh nhận quà hằng ngày'),
   new SlashCommandBuilder().setName('toathien').setDescription('🧘 Tọa thiền hồi phục (hồi chiêu 10 phút)'),
-  new SlashCommandBuilder().setName('nhiemvu').setDescription('📋 Nhận / nộp nhiệm vụ của Cửu Thúc'),
+  new SlashCommandBuilder().setName('nhiemvu').setDescription('📋 Nhiệm vụ theo phái và cảnh giới: nhận, xem, nộp')
+    .addStringOption((o) => o.setName('hanh_dong').setDescription('Hành động khác').addChoices({ name: 'Đổi nhiệm vụ (tốn vàng)', value: 'doi' })),
   new SlashCommandBuilder().setName('bxh').setDescription('🏆 Bảng xếp hạng đạo sĩ')
     .addStringOption((o) => o.setName('loai').setDescription('Loại xếp hạng').addChoices({ name: 'Cảnh giới & cấp độ', value: 'cap' }, { name: 'Danh vọng võ đài', value: 'danhvong' })),
   new SlashCommandBuilder().setName('khamngoc').setDescription('💎 Khảm bảo ngọc vào trang bị')
@@ -2419,7 +2555,7 @@ const handlers = {
     }
     if (p.gold < r.gold * times) return i.reply({ content: `💸 Cần **${fmt(r.gold * times)}** vàng phí luyện.`, flags: EPH });
     for (const [n, q] of Object.entries(r.need)) removeItem(p, n, q * times);
-    p.gold -= r.gold * times; addItem(p, id, r.out * times); save();
+    p.gold -= r.gold * times; addItem(p, id, r.out * times); questProg(p, 'craft', times); save();
     return i.reply({ content: `🔥 Lò luyện bốc khói... Bạn chế được **${r.out * times}x ${label(id)}**!`, flags: EPH });
   },
 
@@ -2472,20 +2608,17 @@ const handlers = {
 
   async nhiemvu(i) {
     const p = getPlayer(i); if (!p) return;
-    if (!p.quest) {
-      const need = rand(3, 8);
-      p.quest = { need, done: 0, gold: need * 40 + p.level * 10, exp: need * 30 + p.level * 10 };
-      save();
-      return i.reply({ embeds: [embed(0x3498db).setTitle('📋 Nhiệm vụ mới từ Cửu Thúc')
-        .setDescription(`*"Gần đây yêu khí nổi lên khắp nơi. Hãy diệt giúp ta **${need}** yêu ma!"*\n\n🎁 Thưởng: **${fmt(p.quest.gold)}** vàng + **${fmt(p.quest.exp)}** EXP`)] });
+    if (i.options.getString('hanh_dong') === 'doi') {
+      if (!p.quest) return i.reply({ content: '📋 Bạn chưa có nhiệm vụ để đổi. Gõ /nhiemvu để nhận.', flags: EPH });
+      const cost = 500 * (p.quest.realm + 1);
+      if (p.gold < cost) return i.reply({ content: `💸 Đổi nhiệm vụ tốn **${fmt(cost)}** vàng (bạn có ${fmt(p.gold)}).`, flags: EPH });
+      p.gold -= cost; p.quest = genQuest(p, p.quest.type); save();
+      return i.reply({ embeds: [questEmbed(p, `🔁 Đã đổi nhiệm vụ (−${fmt(cost)} vàng)`)], flags: EPH });
     }
-    const q = p.quest;
-    if (q.done < q.need) return i.reply({ content: `📋 Tiến độ: **${q.done}/${q.need}** yêu ma ${bar(q.done, q.need)}\n🎁 Thưởng: ${fmt(q.gold)} vàng + ${fmt(q.exp)} EXP`, flags: EPH });
-    p.gold += q.gold;
-    const up = gainExp(p, q.exp);
-    p.quest = null; save();
-    return i.reply({ embeds: [embed(0x2ecc71).setTitle('✅ Hoàn thành nhiệm vụ!')
-      .setDescription(`💰 +${fmt(q.gold)} vàng\n✨ +${fmt(q.exp)} EXP${up ? `\n🎉 **LÊN CẤP ${p.level}!**` : ''}\n\nDùng \`/nhiemvu\` để nhận nhiệm vụ mới.`)] });
+    if (!p.quest) { p.quest = genQuest(p); save(); return i.reply({ embeds: [questEmbed(p, '📜 **Nhiệm vụ mới!**')] }); }
+    if (p.quest.done < p.quest.need) return i.reply({ embeds: [questEmbed(p)], flags: EPH });
+    const lines = claimQuest(p); save();
+    return i.reply({ embeds: [embed(0x2ecc71).setTitle('✅ Hoàn thành nhiệm vụ!').setDescription(`${lines.join('\n')}\n\nGõ /nhiemvu để nhận nhiệm vụ mới.`)] });
   },
 
   async bxh(i) {
@@ -2738,6 +2871,7 @@ const handlers = {
         '**VIP:** `/vip xem`, `/vip nhanqua`, `/vipshop` – Nguyên Bảo kiếm miễn phí qua điểm danh, boss, độ kiếp, thành tựu.',
         '**Lưu dữ liệu:** `/luudata` – tự lưu liên tục, sao lưu 30 phút/lần, tải bản sao nhân vật.',
         '**Cửa hàng:** `/tiem` có 16 tiệm – Chợ Đen, Lò Rèn, Đan Dược, Phù Chú, Bảo Ngọc, Thương Nhân, 🎁 Phúc Lợi (quà free mỗi ngày), 🧸 Tân Thủ, 🎲 Rương Bí Ẩn, 🐾 Linh Thú, 🙏 Cầu Phúc... Mở rương/dùng bùa phúc bằng `/dung`.',
+        '**Nhiệm vụ:** `/nhiemvu` – 17 loại nhiệm vụ, khác nhau theo phái và cảnh giới (càng cao càng khó, thưởng càng lớn). Đủ 3 nhiệm vụ/ngày có quà thêm. `/nhiemvu hanh_dong:Đổi` để đổi.',
         '**Luyện tuyệt kỹ:** `/luyenkynang` – nâng từng chiêu lên cấp 10 (mỗi cấp +6% sát thương) bằng vàng và Linh Thạch.',
         '**Trấn Yêu Tháp:** `/thap` – leo từng tầng, mỗi 10 tầng có boss, thua không mất vàng. `/thap bxh` xem xếp hạng.',
         '**Boss Thế Giới:** `/bosstg` – cả server cùng đánh một boss, chia thưởng theo sát thương.',
@@ -2960,4 +3094,4 @@ async function main() {
 }
 
 if (process.env.DAOSI_TEST !== '1') main();
-module.exports = { commands, ITEMS, RECIPES, GEAR, CLASSES, MAPS, newPlayer, stats, perks, beginFight, act, fightView, enhanceAttempt, enhView, shopView, simKiep, kiepView, gainExp, migrate, buy, fights, capOf, atBottleneck, expNeed, ENH_RATE, handlers, PETS, summonOnce, simulateDuel, gemView, gemStats, socketsOf, petScale, petView, ACH, checkAch, titleBonus, beginTower, towerMonster, wbSync, wbSpawn, wbAttack, settleWb, db, guildCreate, guildJoin, guildLeave, guildDonate, guildBonus, marketPost, marketBuy, marketCancel, marketSync, randomEvent, achView, wbView, marketView, profileEmbed, resultView, openBox, buffVal, BUFF_NAME, skillMult, sklUp, sklView, sklCost, sklLv, SKL_MAX, handleAuto, handleButton, handleSelect, AFFIX, affReroll, affView, affSlots, extraTotals, GRADE_Q, GRADE_NEED, gradeAttempt, gradeView, TECHS, techUp, techView, techCost, PET_EVO, petEvolve, SHOP_DEFS, shopOffers, buyOffer, tiemView, BM_POOL, passiveText, gradeOf, FACTIONS, FAC_GEAR, VIP_SHOP, VIP_PERK, VIP_STEPS, vipLevel, vipBuy, vipShopView, vipEmbed, facView, leadingFaction, fpSync, expMul, goldMul, priceFor, backup, listBackups, saveNow, writeDb, DB_FILE, BACKUP_DIR, loadDb, isAdmin, CLASS_GEAR_MOD, GEM_KINDS };
+module.exports = { commands, ITEMS, RECIPES, GEAR, CLASSES, MAPS, newPlayer, stats, perks, beginFight, act, fightView, enhanceAttempt, enhView, shopView, simKiep, kiepView, gainExp, migrate, buy, fights, capOf, atBottleneck, expNeed, ENH_RATE, handlers, PETS, summonOnce, simulateDuel, gemView, gemStats, socketsOf, petScale, petView, ACH, checkAch, titleBonus, beginTower, towerMonster, wbSync, wbSpawn, wbAttack, settleWb, db, guildCreate, guildJoin, guildLeave, guildDonate, guildBonus, marketPost, marketBuy, marketCancel, marketSync, randomEvent, achView, wbView, marketView, profileEmbed, resultView, genQuest, questProg, questEmbed, claimQuest, QTYPES, CLASS_QUEST, REALM_REWARD, dailyN, openBox, buffVal, BUFF_NAME, skillMult, sklUp, sklView, sklCost, sklLv, SKL_MAX, handleAuto, handleButton, handleSelect, AFFIX, affReroll, affView, affSlots, extraTotals, GRADE_Q, GRADE_NEED, gradeAttempt, gradeView, TECHS, techUp, techView, techCost, PET_EVO, petEvolve, SHOP_DEFS, shopOffers, buyOffer, tiemView, BM_POOL, passiveText, gradeOf, FACTIONS, FAC_GEAR, VIP_SHOP, VIP_PERK, VIP_STEPS, vipLevel, vipBuy, vipShopView, vipEmbed, facView, leadingFaction, fpSync, expMul, goldMul, priceFor, backup, listBackups, saveNow, writeDb, DB_FILE, BACKUP_DIR, loadDb, isAdmin, CLASS_GEAR_MOD, GEM_KINDS };
