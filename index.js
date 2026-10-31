@@ -1,6 +1,6 @@
-// ☯️ ĐẠO SĨ BOT v4.2 – Bot RPG Discord lấy cảm hứng từ phim "Cương Thi Tiên Sinh"
+// ☯️ ĐẠO SĨ BOT v4.3 – Bot RPG Discord lấy cảm hứng từ phim "Cương Thi Tiên Sinh"
 // Nhân vật: 18 môn phái, 3 phe, VIP/Nguyên Bảo • Đồ: riêng từng phái, pháp bảo, bùa, lệnh bài phe
-// Nâng cấp: cường hóa +15 (sét đánh), thăng phẩm, tinh luyện, khảm ngọc, công pháp, độ thiên kiếp, tiến hóa đệ tử
+// Nâng cấp: cường hóa +15 (sét đánh), luyện tuyệt kỹ, thăng phẩm, tinh luyện, khảm ngọc, công pháp, độ thiên kiếp, tiến hóa đệ tử
 // Hoạt động: săn 6 khu vực, Trấn Yêu Tháp, boss thế giới, võ đài PvP, tông môn, chợ, 16 cửa hàng, rương, bùa phúc, thành tựu
 // Dữ liệu: tự lưu + ghi nguyên tử + sao lưu 30 phút/lần + tự khôi phục khi file hỏng
 // Yêu cầu: Node.js 18+ và discord.js v14
@@ -534,6 +534,7 @@ const ACH = [
   { id: 'aff3', name: 'Luyện Khí Tông Sư', desc: 'Một món có 3 dòng tinh luyện', test: (p) => Object.values(p.aff).some((a) => a.length >= 3), title: { atk: 0.02, def: 0.02 }, gold: 8000 },
   { id: 'phe', name: 'Có Chốn Nương Thân', desc: 'Chọn một phe', test: (p) => !!p.fac, title: { hp: 0.01 }, gold: 500 },
   { id: 'vip1', name: 'Quý Nhân', desc: 'Đạt VIP 1', test: (p) => vipLevel(p) >= 1, title: { atk: 0.02, def: 0.02 }, gold: 0 },
+  { id: 'skl10', name: 'Tuyệt Kỹ Đại Sư', desc: 'Luyện một tuyệt kỹ lên cấp 10', test: (p) => Object.values(p.skl || {}).some((v) => v >= 10), title: { atk: 0.03 }, gold: 8000 },
   { id: 'rich', name: 'Đại Gia Mao Sơn', desc: 'Sở hữu 100.000 vàng', test: (p) => p.gold >= 100000, title: { def: 0.02 }, gold: 0 },
 ];
 // ── Phe phái ──
@@ -698,7 +699,7 @@ process.on('SIGTERM', () => { saveNow(); process.exit(0); });
 
 // Nâng cấp dữ liệu cũ (v2 → v3)
 function migrate(p) {
-  p.inv ??= {}; p.equip ??= {}; p.buffs ??= {}; p.equip.badge ??= null; p.fac ??= null; p.facAt ??= 0; p.nb ??= 0; p.vipPts ??= 0; p.lastVip ??= 0; p.vd ??= 0; p.tl ??= 0; p.gp ??= 0; p.aff ??= {}; p.grade ??= {}; p.tech ??= {}; p.shopLog ??= { day: 0, counts: {} };
+  p.inv ??= {}; p.equip ??= {}; p.buffs ??= {}; p.skl ??= {}; p.equip.badge ??= null; p.fac ??= null; p.facAt ??= 0; p.nb ??= 0; p.vipPts ??= 0; p.lastVip ??= 0; p.vd ??= 0; p.tl ??= 0; p.gp ??= 0; p.aff ??= {}; p.grade ??= {}; p.tech ??= {}; p.shopLog ??= { day: 0, counts: {} };
   p.enh ??= {}; p.lastKiep ??= 0; p.kiepDone ??= 0; p.gems ??= {}; p.pets ??= {}; p.pet ??= null; p.honor ??= 0; p.pity ??= 0; p.lastDuel ??= 0; p.title ??= null; p.ach ??= {}; p.guild ??= null; p.contrib ??= 0; p.towerBest ??= 0; p.duelWins ??= 0; p.wbHits ??= 0; p.wbKills ??= 0; p.lastWb ??= 0;
   p.realm ??= Math.min(5, Math.floor(p.level / 10));
   p.equip.treasure ??= null; p.equip.charm ??= null;
@@ -799,7 +800,7 @@ function newPlayer(cls, name) {
     name, cls, level: 1, exp: 0, realm: 0, gold: 200,
     inv: { linhdan: 3, phutranthi: 2, gaoep: 2 },
     equip: { weapon: null, armor: null, treasure: null, charm: null, badge: null, accessory: null },
-    enh: {}, buffs: {}, fac: null, facAt: 0, nb: 0, vipPts: 0, lastVip: 0, vd: 0, tl: 0, gp: 0, aff: {}, grade: {}, tech: {}, shopLog: { day: 0, counts: {} }, gems: {}, pets: {}, pet: null, honor: 0, pity: 0, lastDuel: 0, title: null, ach: {}, guild: null, contrib: 0, towerBest: 0, duelWins: 0, wbHits: 0, wbKills: 0, lastWb: 0, hp: 0, mp: 0, kills: 0, deaths: 0, bossKills: 0, kiepDone: 0,
+    enh: {}, buffs: {}, skl: {}, fac: null, facAt: 0, nb: 0, vipPts: 0, lastVip: 0, vd: 0, tl: 0, gp: 0, aff: {}, grade: {}, tech: {}, shopLog: { day: 0, counts: {} }, gems: {}, pets: {}, pet: null, honor: 0, pity: 0, lastDuel: 0, title: null, ach: {}, guild: null, contrib: 0, towerBest: 0, duelWins: 0, wbHits: 0, wbKills: 0, lastWb: 0, hp: 0, mp: 0, kills: 0, deaths: 0, bossKills: 0, kiepDone: 0,
     streak: 0, lastDaily: 0, lastMeditate: 0, lastKiep: 0, quest: null,
   };
   if (cls === 'nguthi') { p.pets.tieucuongthi = { star: 1 }; p.pet = 'tieucuongthi'; }
@@ -959,7 +960,7 @@ function act(p, f, action) {
     if (p.mp < sk.cost) return { error: '🔷 Không đủ linh lực!' };
     p.mp -= sk.cost;
     const hits = sk.hits || 1; let total = 0, crits = 0;
-    for (let h = 0; h < hits; h++) { const r = hit(sk.mult * (m.undead && sk.vsUndead ? sk.vsUndead : 1), sk.ignoreDef, sk.lifesteal || 0); total += r.dmg; if (r.crit) crits++; }
+    for (let h = 0; h < hits; h++) { const r = hit(skillMult(p, sk) * (m.undead && sk.vsUndead ? sk.vsUndead : 1), sk.ignoreDef, sk.lifesteal || 0); total += r.dmg; if (r.crit) crits++; }
     log.push(`✨ **${sk.name}**${hits > 1 ? ` (${hits} đòn)` : ''}: **${total}** sát thương${crits ? ` 💥x${crits}` : ''}`);
     thunder();
     if (sk.heal) log.push(`💚 Hồi **${heal(Math.round(s.maxHp * sk.heal))}** HP`);
@@ -1351,7 +1352,7 @@ function simulateDuel(pa, pb) {
     if (Math.random() < Y.pk.dodge) { log.push(`💨 **${Y.name}** né được đòn của **${X.name}**!`); return; }
     const hits = sk?.hits || 1; let total = 0, crit = 0;
     for (let h = 0; h < hits; h++) {
-      const r = calcDmg(X.s.atk, Y.s.def, { mult: sk?.mult || 1, ignoreDef: sk?.ignoreDef, critC: 0.15 + X.pk.crit });
+      const r = calcDmg(X.s.atk, Y.s.def, { mult: sk ? skillMult(X.p, sk) : 1, ignoreDef: sk?.ignoreDef, critC: 0.15 + X.pk.crit });
       let d = r.dmg * PVP_DMG * (1 - Y.pk.reduce);
       if (Y.shield?.t > 0) d *= 1 - Y.shield.pct;
       if (X.curse?.t > 0) d *= 1 - X.curse.pct;
@@ -1463,10 +1464,16 @@ function achView(p, uid) {
     .setDescription(`Đã mở **${Object.keys(p.ach).length}/${ACH.length}** • Danh hiệu hiện tại: **${titleName(p) || 'chưa đeo'}**\n\n${lines.join('\n')}`);
   const unlocked = ACH.filter((a) => p.ach[a.id]);
   const comps = [];
-  if (unlocked.length) {
-    comps.push(row(new StringSelectMenuBuilder().setCustomId(`titleset:${uid}`).setPlaceholder('🎖️ Chọn danh hiệu để đeo...')
-      .addOptions([...unlocked.map((a) => ({ label: a.name, value: a.id, description: bonusText(a.title), default: p.title === a.id })), { label: 'Tháo danh hiệu', value: 'none', emoji: '🚫' }])));
-  }
+  // Mỗi menu tối đa 25 lựa chọn: chia thành nhiều menu khi có nhiều thành tựu
+  const opt = (a) => ({ label: a.name, value: a.id, description: bonusText(a.title), default: p.title === a.id });
+  const chunks = [];
+  for (let k = 0; k < unlocked.length; k += 24) chunks.push(unlocked.slice(k, k + 24));
+  chunks.forEach((c, k) => {
+    const o = c.map(opt);
+    if (k === 0) o.push({ label: 'Tháo danh hiệu', value: 'none', emoji: '🚫' });
+    comps.push(row(new StringSelectMenuBuilder().setCustomId(k === 0 ? `titleset:${uid}` : `titleset${k}:${uid}`)
+      .setPlaceholder(k === 0 ? '🎖️ Chọn danh hiệu để đeo...' : `🎖️ Danh hiệu (trang ${k + 1})...`).addOptions(o)));
+  });
   return { content: '', embeds: [e], components: comps };
 }
 
@@ -1553,7 +1560,7 @@ function wbAttack(p, uid) {
     const sk = skills.length && Math.random() < 0.75 ? skills[skills.length - 1] : null;
     if (sk) { mp -= sk.cost; skillUses++; }
     const hits = sk?.hits || 1;
-    for (let h = 0; h < hits; h++) total += calcDmg(s.atk, w.def, { mult: sk?.mult || 1, ignoreDef: sk?.ignoreDef, critC: 0.15 + pk.crit }).dmg;
+    for (let h = 0; h < hits; h++) total += calcDmg(s.atk, w.def, { mult: sk ? skillMult(p, sk) : 1, ignoreDef: sk?.ignoreDef, critC: 0.15 + pk.crit }).dmg;
     if (Math.random() < pk.thunder) total += Math.round(s.atk * 1.2 + p.level * 3);
     if (pet?.atk) total += Math.max(1, Math.round(s.atk * pet.atk * petScale(pet.star, pet.boost, pet.evo)));
     mp = Math.min(s.maxMp, mp + 3 + pk.regen);
@@ -2074,6 +2081,47 @@ const passiveText = (c) => {
   return parts.join(', ') || '*không có*';
 };
 
+/* ═══════════════════════════ LUYỆN TUYỆT KỸ ═══════════════════════════ */
+const SKL_MAX = 10, SKL_BONUS = 0.06; // mỗi cấp +6% sát thương chiêu, tối đa +60%
+const sklLv = (p, idx) => p.skl?.[idx] || 0;
+function skillMult(p, sk) { return sk.mult * (1 + SKL_BONUS * sklLv(p, CLASSES[p.cls].skills.indexOf(sk))); }
+const sklCost = (L) => ({ gold: Math.round(600 * Math.pow(L + 1, 1.6)), lt: (L + 1) * 2 });
+const sklNeedLv = (sk, L) => sk.lv + 2 * L;
+function sklUp(p, idx) {
+  const sk = CLASSES[p.cls].skills[idx];
+  if (!sk) return { ok: false, msg: '❌ Tuyệt kỹ không tồn tại.' };
+  const L = sklLv(p, idx);
+  if (L >= SKL_MAX) return { ok: false, msg: `⭐ **${sk.name}** đã đạt cấp tối đa ${SKL_MAX}!` };
+  if (p.level < sk.lv) return { ok: false, msg: `🔒 Cần cấp ${sk.lv} để mở **${sk.name}**.` };
+  const need = sklNeedLv(sk, L);
+  if (p.level < need) return { ok: false, msg: `⛔ Luyện **${sk.name}** lên cấp ${L + 1} cần nhân vật cấp **${need}** (đang cấp ${p.level}).` };
+  const c = sklCost(L);
+  if (p.gold < c.gold) return { ok: false, msg: `💸 Cần **${fmt(c.gold)}** vàng (bạn có ${fmt(p.gold)}).` };
+  if (count(p, 'linhthach') < c.lt) return { ok: false, msg: `💠 Cần **${c.lt}** Linh Thạch (bạn có ${count(p, 'linhthach')}).` };
+  p.gold -= c.gold; removeItem(p, 'linhthach', c.lt);
+  p.skl ??= {}; p.skl[idx] = L + 1;
+  return { ok: true, msg: `🔥 Luyện **${sk.name}** lên cấp **${L + 1}**! Sát thương ×${(sk.mult * (1 + SKL_BONUS * (L + 1))).toFixed(2)}` };
+}
+function sklView(p, uid, note = '') {
+  const c = CLASSES[p.cls];
+  const lines = c.skills.map((sk, n) => {
+    const L = sklLv(p, n), stars = '⭐'.repeat(L) + '▫️'.repeat(SKL_MAX - L);
+    let tail;
+    if (p.level < sk.lv) tail = `🔒 Mở ở cấp ${sk.lv}`;
+    else if (L >= SKL_MAX) tail = '✅ **Đã đạt cấp tối đa**';
+    else { const cs = sklCost(L), need = sklNeedLv(sk, L); tail = `Lên cấp ${L + 1}: ×${(sk.mult * (1 + SKL_BONUS * L)).toFixed(2)} → ×${(sk.mult * (1 + SKL_BONUS * (L + 1))).toFixed(2)} • ${fmt(cs.gold)}🪙 + ${cs.lt}💠${p.level < need ? ` • *cần cấp ${need}*` : ''}`; }
+    return `**${n + 1}. ${sk.name}** (${sk.cost} LL) ${stars} ${L}/${SKL_MAX}\n┗ ${tail}`;
+  });
+  const e = embed(0xe67e22).setTitle(`🔥 Luyện Tuyệt Kỹ • ${c.emoji} ${c.name}`)
+    .setDescription(`${note ? `${note}\n\n` : ''}💰 ${fmt(p.gold)} vàng • 💠 ${fmt(count(p, 'linhthach'))} Linh Thạch\nMỗi cấp tăng **+${pct(SKL_BONUS)}** sát thương chiêu (tối đa +${pct(SKL_BONUS * SKL_MAX)}). Cấp nhân vật yêu cầu tăng theo cấp chiêu.\n\n${lines.join('\n\n')}`);
+  const btn = (n) => {
+    const sk = c.skills[n], L = sklLv(p, n);
+    return new ButtonBuilder().setCustomId(`skl:${n}:${uid}`).setLabel(L >= SKL_MAX ? `${sk.name} (MAX)` : `Luyện ${sk.name}`.slice(0, 80)).setEmoji('🔥')
+      .setStyle(ButtonStyle.Primary).setDisabled(L >= SKL_MAX || p.level < sk.lv);
+  };
+  return { content: '', embeds: [e], components: [row(btn(0), btn(1), btn(2))] };
+}
+
 /* ═══════════════════════════ ĐỊNH NGHĨA LỆNH ═══════════════════════════ */
 const itemOpt = (o, desc = 'Chọn vật phẩm', req = true) => o.setName('vatpham').setDescription(desc).setRequired(req).setAutocomplete(true);
 const qtyOpt = (o) => o.setName('soluong').setDescription('Số lượng (mặc định 1)').setMinValue(1).setMaxValue(99);
@@ -2164,6 +2212,7 @@ const commands = [
   new SlashCommandBuilder().setName('thangpham').setDescription('🌟 Thăng phẩm trang bị: Phàm → Linh → Bảo → Tiên → Thần')
     .addStringOption((o) => itemOpt(o, 'Trang bị muốn thăng phẩm')),
   new SlashCommandBuilder().setName('congphap').setDescription('📖 Luyện công pháp để tăng chỉ số vĩnh viễn'),
+  new SlashCommandBuilder().setName('luyenkynang').setDescription('🔥 Luyện tuyệt kỹ: tăng sát thương từng chiêu (tối đa cấp 10)'),
   new SlashCommandBuilder().setName('trogiup').setDescription('📖 Hướng dẫn chơi'),
 ].map((c) => c.toJSON());
 
@@ -2234,7 +2283,7 @@ const handlers = {
     const p = getPlayer(i); if (!p) return;
     const c = CLASSES[p.cls];
     const lines = c.skills.map((sk, n) => {
-      const fx = [`×${sk.mult}${sk.hits ? ` x${sk.hits} đòn` : ''}`];
+      const fx = [`×${skillMult(p, sk).toFixed(2)}${sk.hits ? ` x${sk.hits} đòn` : ''}`];
       if (sk.ignoreDef) fx.push('xuyên giáp');
       if (sk.heal) fx.push(`hồi ${pct(sk.heal)} HP`);
       if (sk.stun) fx.push(`${pct(sk.stun)} choáng`);
@@ -2243,9 +2292,9 @@ const handlers = {
       if (sk.lifesteal) fx.push(`hút ${pct(sk.lifesteal)} máu`);
       if (sk.vsUndead) fx.push(`×${sk.vsUndead} lên ma/quỷ/cương thi`);
       if (sk.curse) fx.push(`nguyền rủa −${pct(sk.curse.pct)} sức mạnh ${sk.curse.t} lượt`);
-      return `${p.level >= sk.lv ? '✅' : '🔒'} **${n + 1}. ${sk.name}** (Lv${sk.lv}, ${sk.cost} LL)\n┗ ${fx.join(', ')}`;
+      return `${p.level >= sk.lv ? '✅' : '🔒'} **${n + 1}. ${sk.name}** (Lv${sk.lv}, ${sk.cost} LL${sklLv(p, n) ? `, ⭐${sklLv(p, n)}/${SKL_MAX}` : ''})\n┗ ${fx.join(', ')}`;
     });
-    return i.reply({ embeds: [embed(0x3498db).setTitle(`✨ Tuyệt kỹ ${c.emoji} ${c.name}`).setDescription(`${lines.join('\n')}\n\n**Nội tại:** ${passiveText(c)}`)], flags: EPH });
+    return i.reply({ embeds: [embed(0x3498db).setTitle(`✨ Tuyệt kỹ ${c.emoji} ${c.name}`).setDescription(`${lines.join('\n')}\n\n**Nội tại:** ${passiveText(c)}\n🔥 Nâng cấp chiêu: \`/luyenkynang\``)], flags: EPH });
   },
 
   async cuahang(i) {
@@ -2667,6 +2716,11 @@ const handlers = {
     return i.reply({ ...techView(p, i.user.id), flags: EPH });
   },
 
+  async luyenkynang(i) {
+    const p = getPlayer(i); if (!p) return;
+    return i.reply({ ...sklView(p, i.user.id), flags: EPH });
+  },
+
   async trogiup(i) {
     const mapList = Object.values(MAPS).map((m) => `${m.emoji} ${m.name} – Lv ${m.lv}+`).join('\n');
     return i.reply({ embeds: [embed(0x95a5a6).setTitle('📖 Hướng dẫn Đạo Sĩ Bot v4')
@@ -2684,6 +2738,7 @@ const handlers = {
         '**VIP:** `/vip xem`, `/vip nhanqua`, `/vipshop` – Nguyên Bảo kiếm miễn phí qua điểm danh, boss, độ kiếp, thành tựu.',
         '**Lưu dữ liệu:** `/luudata` – tự lưu liên tục, sao lưu 30 phút/lần, tải bản sao nhân vật.',
         '**Cửa hàng:** `/tiem` có 16 tiệm – Chợ Đen, Lò Rèn, Đan Dược, Phù Chú, Bảo Ngọc, Thương Nhân, 🎁 Phúc Lợi (quà free mỗi ngày), 🧸 Tân Thủ, 🎲 Rương Bí Ẩn, 🐾 Linh Thú, 🙏 Cầu Phúc... Mở rương/dùng bùa phúc bằng `/dung`.',
+        '**Luyện tuyệt kỹ:** `/luyenkynang` – nâng từng chiêu lên cấp 10 (mỗi cấp +6% sát thương) bằng vàng và Linh Thạch.',
         '**Trấn Yêu Tháp:** `/thap` – leo từng tầng, mỗi 10 tầng có boss, thua không mất vàng. `/thap bxh` xem xếp hạng.',
         '**Boss Thế Giới:** `/bosstg` – cả server cùng đánh một boss, chia thưởng theo sát thương.',
         '**Tông môn:** `/tongmon` – lập/gia nhập, cống hiến vàng để nâng cấp, cả nhóm cùng được cộng % chỉ số.',
@@ -2755,6 +2810,11 @@ async function handleButton(i) {
     case 'enhv':
       if (!owns(p, parts[1])) return i.update({ content: '❌ Món này không còn nữa.', embeds: [], components: [] });
       return i.update(enhView(p, uid, parts[1]));
+    case 'skl': {
+      if (fights.has(uid)) return i.reply({ content: '⚔️ Hãy kết thúc trận chiến trước khi luyện chiêu.', flags: EPH });
+      const r = sklUp(p, +parts[1]); save();
+      return i.update(sklView(p, uid, r.msg));
+    }
     case 'kiep': return runKiep(i, uid, p, +parts[1]);
     case 'aff': {
       if (fights.has(uid)) return i.reply({ content: '⚔️ Đang trong trận chiến!', flags: EPH });
@@ -2805,7 +2865,7 @@ async function handleSelect(i) {
     const r = vipBuy(p, v); save();
     return i.reply({ content: r.msg, flags: EPH });
   }
-  if (kind === 'titleset') {
+  if (kind.startsWith('titleset')) {
     p.title = v === 'none' ? null : v;
     const s2 = stats(p); p.hp = Math.min(p.hp, s2.maxHp); save();
     return i.update(achView(p, uid));
@@ -2900,4 +2960,4 @@ async function main() {
 }
 
 if (process.env.DAOSI_TEST !== '1') main();
-module.exports = { commands, ITEMS, RECIPES, GEAR, CLASSES, MAPS, newPlayer, stats, perks, beginFight, act, fightView, enhanceAttempt, enhView, shopView, simKiep, kiepView, gainExp, migrate, buy, fights, capOf, atBottleneck, expNeed, ENH_RATE, handlers, PETS, summonOnce, simulateDuel, gemView, gemStats, socketsOf, petScale, petView, ACH, checkAch, titleBonus, beginTower, towerMonster, wbSync, wbSpawn, wbAttack, settleWb, db, guildCreate, guildJoin, guildLeave, guildDonate, guildBonus, marketPost, marketBuy, marketCancel, marketSync, randomEvent, achView, wbView, marketView, profileEmbed, resultView, openBox, buffVal, BUFF_NAME, handleAuto, handleButton, handleSelect, AFFIX, affReroll, affView, affSlots, extraTotals, GRADE_Q, GRADE_NEED, gradeAttempt, gradeView, TECHS, techUp, techView, techCost, PET_EVO, petEvolve, SHOP_DEFS, shopOffers, buyOffer, tiemView, BM_POOL, passiveText, gradeOf, FACTIONS, FAC_GEAR, VIP_SHOP, VIP_PERK, VIP_STEPS, vipLevel, vipBuy, vipShopView, vipEmbed, facView, leadingFaction, fpSync, expMul, goldMul, priceFor, backup, listBackups, saveNow, writeDb, DB_FILE, BACKUP_DIR, loadDb, isAdmin, CLASS_GEAR_MOD, GEM_KINDS };
+module.exports = { commands, ITEMS, RECIPES, GEAR, CLASSES, MAPS, newPlayer, stats, perks, beginFight, act, fightView, enhanceAttempt, enhView, shopView, simKiep, kiepView, gainExp, migrate, buy, fights, capOf, atBottleneck, expNeed, ENH_RATE, handlers, PETS, summonOnce, simulateDuel, gemView, gemStats, socketsOf, petScale, petView, ACH, checkAch, titleBonus, beginTower, towerMonster, wbSync, wbSpawn, wbAttack, settleWb, db, guildCreate, guildJoin, guildLeave, guildDonate, guildBonus, marketPost, marketBuy, marketCancel, marketSync, randomEvent, achView, wbView, marketView, profileEmbed, resultView, openBox, buffVal, BUFF_NAME, skillMult, sklUp, sklView, sklCost, sklLv, SKL_MAX, handleAuto, handleButton, handleSelect, AFFIX, affReroll, affView, affSlots, extraTotals, GRADE_Q, GRADE_NEED, gradeAttempt, gradeView, TECHS, techUp, techView, techCost, PET_EVO, petEvolve, SHOP_DEFS, shopOffers, buyOffer, tiemView, BM_POOL, passiveText, gradeOf, FACTIONS, FAC_GEAR, VIP_SHOP, VIP_PERK, VIP_STEPS, vipLevel, vipBuy, vipShopView, vipEmbed, facView, leadingFaction, fpSync, expMul, goldMul, priceFor, backup, listBackups, saveNow, writeDb, DB_FILE, BACKUP_DIR, loadDb, isAdmin, CLASS_GEAR_MOD, GEM_KINDS };

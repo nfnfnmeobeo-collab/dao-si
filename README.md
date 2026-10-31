@@ -1,4 +1,4 @@
-# ☯️ Đạo Sĩ Bot v4.2
+# ☯️ Đạo Sĩ Bot v4.3
 
 ## Chạy bot (5 bước)
 1. Cài **Node.js 18 trở lên** (kiểm tra: `node -v`).
