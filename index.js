@@ -1,7 +1,7 @@
-// ☯️ ĐẠO SĨ BOT v4.1 – Bot RPG Discord lấy cảm hứng từ phim "Cương Thi Tiên Sinh"
+// ☯️ ĐẠO SĨ BOT v4.2 – Bot RPG Discord lấy cảm hứng từ phim "Cương Thi Tiên Sinh"
 // Nhân vật: 18 môn phái, 3 phe, VIP/Nguyên Bảo • Đồ: riêng từng phái, pháp bảo, bùa, lệnh bài phe
 // Nâng cấp: cường hóa +15 (sét đánh), thăng phẩm, tinh luyện, khảm ngọc, công pháp, độ thiên kiếp, tiến hóa đệ tử
-// Hoạt động: săn 6 khu vực, Trấn Yêu Tháp, boss thế giới, võ đài PvP, tông môn, chợ, 5 cửa hàng, thành tựu
+// Hoạt động: săn 6 khu vực, Trấn Yêu Tháp, boss thế giới, võ đài PvP, tông môn, chợ, 16 cửa hàng, rương, bùa phúc, thành tựu
 // Dữ liệu: tự lưu + ghi nguyên tử + sao lưu 30 phút/lần + tự khôi phục khi file hỏng
 // Yêu cầu: Node.js 18+ và discord.js v14
 
@@ -560,8 +560,8 @@ const VIP_PERK = {
   stat: [0, 0, 0.01, 0.02, 0.03, 0.05], slots: [0, 2, 4, 6, 8, 10], med: [10, 10, 8, 6, 5, 3], wb: [180, 180, 150, 120, 90, 60],
 };
 const vipLevel = (p) => { let l = 0; for (let i = 1; i < VIP_STEPS.length; i++) if ((p.vipPts || 0) >= VIP_STEPS[i]) l = i; return l; };
-const expMul = (p) => 1 + (FACTIONS[p.fac]?.exp || 0) + (CLASSES[p.cls]?.expBonus || 0) + VIP_PERK.exp[vipLevel(p)];
-const goldMul = (p) => 1 + (FACTIONS[p.fac]?.gold || 0) + (CLASSES[p.cls]?.goldBonus || 0) + VIP_PERK.gold[vipLevel(p)];
+const expMul = (p) => 1 + (FACTIONS[p.fac]?.exp || 0) + (CLASSES[p.cls]?.expBonus || 0) + VIP_PERK.exp[vipLevel(p)] + buffVal(p, 'exp');
+const goldMul = (p) => 1 + (FACTIONS[p.fac]?.gold || 0) + (CLASSES[p.cls]?.goldBonus || 0) + VIP_PERK.gold[vipLevel(p)] + buffVal(p, 'gold');
 const priceFor = (p, it) => Math.max(1, Math.round(it.price * (1 - VIP_PERK.disc[vipLevel(p)])));
 const meditateCd = (p) => VIP_PERK.med[vipLevel(p)] * 60000;
 const wbHitCd = (p) => VIP_PERK.wb[vipLevel(p)] * 1000;
@@ -573,7 +573,7 @@ const guildBonus = (p) => { const g = p.guild && db.guilds?.[p.guild]; return g 
 
 const TYPE_INFO = {
   weapon: ['⚔️', 'Vũ khí'], armor: ['🥋', 'Giáp / Đạo bào'], treasure: ['🔱', 'Pháp bảo'], charm: ['🧧', 'Bùa hộ thân'],
-  acc: ['📿', 'Pháp khí'], badge: ['🎖️', 'Lệnh bài phe'], gem: ['💎', 'Bảo ngọc'], potion: ['💊', 'Đan dược'], talisman: ['📜', 'Phù chú & trừ tà'], material: ['🧪', 'Nguyên liệu'],
+  acc: ['📿', 'Pháp khí'], chest: ['🎁', 'Rương'], badge: ['🎖️', 'Lệnh bài phe'], gem: ['💎', 'Bảo ngọc'], potion: ['💊', 'Đan dược'], talisman: ['📜', 'Phù chú & trừ tà'], material: ['🧪', 'Nguyên liệu'],
 };
 const SLOT_OF = { weapon: 'weapon', armor: 'armor', treasure: 'treasure', charm: 'charm', badge: 'badge', acc: 'accessory' };
 const SLOT_NAME = { weapon: '⚔️ Vũ khí', armor: '🥋 Giáp', treasure: '🔱 Pháp bảo', charm: '🧧 Bùa hộ thân', badge: '🎖️ Lệnh bài phe', accessory: '📿 Pháp khí' };
@@ -698,7 +698,7 @@ process.on('SIGTERM', () => { saveNow(); process.exit(0); });
 
 // Nâng cấp dữ liệu cũ (v2 → v3)
 function migrate(p) {
-  p.inv ??= {}; p.equip ??= {}; p.equip.badge ??= null; p.fac ??= null; p.facAt ??= 0; p.nb ??= 0; p.vipPts ??= 0; p.lastVip ??= 0; p.vd ??= 0; p.tl ??= 0; p.gp ??= 0; p.aff ??= {}; p.grade ??= {}; p.tech ??= {}; p.shopLog ??= { day: 0, counts: {} };
+  p.inv ??= {}; p.equip ??= {}; p.buffs ??= {}; p.equip.badge ??= null; p.fac ??= null; p.facAt ??= 0; p.nb ??= 0; p.vipPts ??= 0; p.lastVip ??= 0; p.vd ??= 0; p.tl ??= 0; p.gp ??= 0; p.aff ??= {}; p.grade ??= {}; p.tech ??= {}; p.shopLog ??= { day: 0, counts: {} };
   p.enh ??= {}; p.lastKiep ??= 0; p.kiepDone ??= 0; p.gems ??= {}; p.pets ??= {}; p.pet ??= null; p.honor ??= 0; p.pity ??= 0; p.lastDuel ??= 0; p.title ??= null; p.ach ??= {}; p.guild ??= null; p.contrib ??= 0; p.towerBest ??= 0; p.duelWins ??= 0; p.wbHits ??= 0; p.wbKills ??= 0; p.lastWb ??= 0;
   p.realm ??= Math.min(5, Math.floor(p.level / 10));
   p.equip.treasure ??= null; p.equip.charm ??= null;
@@ -799,7 +799,7 @@ function newPlayer(cls, name) {
     name, cls, level: 1, exp: 0, realm: 0, gold: 200,
     inv: { linhdan: 3, phutranthi: 2, gaoep: 2 },
     equip: { weapon: null, armor: null, treasure: null, charm: null, badge: null, accessory: null },
-    enh: {}, fac: null, facAt: 0, nb: 0, vipPts: 0, lastVip: 0, vd: 0, tl: 0, gp: 0, aff: {}, grade: {}, tech: {}, shopLog: { day: 0, counts: {} }, gems: {}, pets: {}, pet: null, honor: 0, pity: 0, lastDuel: 0, title: null, ach: {}, guild: null, contrib: 0, towerBest: 0, duelWins: 0, wbHits: 0, wbKills: 0, lastWb: 0, hp: 0, mp: 0, kills: 0, deaths: 0, bossKills: 0, kiepDone: 0,
+    enh: {}, buffs: {}, fac: null, facAt: 0, nb: 0, vipPts: 0, lastVip: 0, vd: 0, tl: 0, gp: 0, aff: {}, grade: {}, tech: {}, shopLog: { day: 0, counts: {} }, gems: {}, pets: {}, pet: null, honor: 0, pity: 0, lastDuel: 0, title: null, ach: {}, guild: null, contrib: 0, towerBest: 0, duelWins: 0, wbHits: 0, wbKills: 0, lastWb: 0, hp: 0, mp: 0, kills: 0, deaths: 0, bossKills: 0, kiepDone: 0,
     streak: 0, lastDaily: 0, lastMeditate: 0, lastKiep: 0, quest: null,
   };
   if (cls === 'nguthi') { p.pets.tieucuongthi = { star: 1 }; p.pet = 'tieucuongthi'; }
@@ -851,7 +851,7 @@ function fightView(uid, p, f) {
     p.level < sk.lv || p.mp < sk.cost));
   const row1 = row(btn('attack', 'Chém', ButtonStyle.Danger, '⚔️'), ...skillBtns, btn('run', 'Chạy', ButtonStyle.Secondary, '🏃'));
 
-  const usable = Object.keys(p.inv).filter((id) => ITEMS[id].use && !ITEMS[id].use.exp && (!ITEMS[id].cls || ITEMS[id].cls === p.cls));
+  const usable = Object.keys(p.inv).filter((id) => ITEMS[id].use && !ITEMS[id].use.exp && !ITEMS[id].use.box && !ITEMS[id].use.buff && (!ITEMS[id].cls || ITEMS[id].cls === p.cls));
   const menu = new StringSelectMenuBuilder().setCustomId(`ct:${uid}`);
   if (usable.length) {
     menu.setPlaceholder('🎒 Dùng đan dược / phù chú...').addOptions(usable.slice(0, 25).map((id) => ({
@@ -899,7 +899,7 @@ function winRewards(p, f) {
   if (f.boss) p.bossKills++;
   const drops = [...m.drops, ['linhthach', f.boss ? 1 : 0.12, f.boss ? 3 : 1]];
   for (const [key, chance, max = 1] of drops) {
-    if (Math.random() >= Math.min(1, chance * (1 + (CLASSES[p.cls].dropBonus || 0)))) continue;
+    if (Math.random() >= Math.min(1, chance * (1 + (CLASSES[p.cls].dropBonus || 0) + buffVal(p, 'drop')))) continue;
     const id = resolveDrop(key, p.cls, p.fac);
     if (!id) continue;
     const n = max > 1 ? rand(1, max) : 1;
@@ -1075,7 +1075,7 @@ function shopView(p, uid, cat = 'weapon') {
   const e = embed(0xe67e22).setTitle(`🏮 Tiệm Cửu Thúc • ${TYPE_INFO[cat][0]} ${TYPE_INFO[cat][1]}`)
     .setDescription(`💰 Bạn có **${fmt(p.gold)}** vàng • Môn phái: ${CLASSES[p.cls].emoji} ${CLASSES[p.cls].name}\n*Đồ bậc cao hơn không bán – hãy săn boss hoặc \`/chetao\`.*\n\n${lines.join('\n') || '*Hết hàng*'}`);
   const catMenu = new StringSelectMenuBuilder().setCustomId(`shopcat:${uid}`).setPlaceholder('📂 Chọn danh mục')
-    .addOptions(Object.entries(TYPE_INFO).map(([value, [emoji, name]]) => ({ label: name, value, emoji, default: value === cat })));
+    .addOptions(Object.entries(TYPE_INFO).filter(([k]) => Object.values(ITEMS).some((x) => x.shop && x.type === k)).map(([value, [emoji, name]]) => ({ label: name, value, emoji, default: value === cat })));
   const rows = [row(catMenu)];
   if (list.length) {
     rows.push(row(new StringSelectMenuBuilder().setCustomId(`shop:${uid}`).setPlaceholder('🛒 Chọn món để mua (1 cái)...')
@@ -1884,9 +1884,46 @@ function petEvolve(p, id) {
   return { ok: true, msg: `🔱 **${PETS[id].name}** tiến hóa lên cấp **${pet.evo}**! Sức mạnh ×${(1 + 0.25 * pet.evo).toFixed(2)}.` };
 }
 
+// ── Rương, vé triệu hồi, bùa phúc (bán ở các cửa hàng mới) ──
+Object.assign(ITEMS, {
+  ruongngoc:       { name: 'Rương Ngọc',        emoji: '🎁', type: 'chest', price: 6000,  use: { box: 'ngoc' },       desc: 'Mở ra 3 bảo ngọc ngẫu nhiên (12% bậc Trung)' },
+  ruongtrangbi:    { name: 'Rương Trang Bị',    emoji: '🧰', type: 'chest', price: 25000, use: { box: 'trangbi' },    desc: 'Trang bị ngẫu nhiên bậc 3–5 của phái bạn' },
+  ruongphu:        { name: 'Rương Phù Chú',     emoji: '📦', type: 'chest', price: 5000,  use: { box: 'phu' },        desc: '5 loại phù chú ngẫu nhiên' },
+  ruongnguyenlieu: { name: 'Rương Nguyên Liệu', emoji: '🪵', type: 'chest', price: 12000, use: { box: 'nguyenlieu' }, desc: 'Lôi Thạch, Huyết Ngọc, Linh Thạch, xương, nanh' },
+  ruongvang:       { name: 'Rương Vàng',        emoji: '💰', type: 'chest', price: 3000,  use: { box: 'vang' },       desc: 'Vàng ngẫu nhiên, càng cao cấp càng nhiều' },
+  vetrieuhoi:      { name: 'Vé Triệu Hồi',      emoji: '🎟️', type: 'talisman', price: 1400, desc: 'Dùng thay vàng khi /trieuhoi (1 vé = 1 lượt)' },
+  buffexp:  { name: 'Linh Quang Phù', emoji: '🌟', type: 'potion', price: 4000, use: { buff: { k: 'exp', v: 0.5, mins: 60 } },  desc: '+50% EXP trong 60 phút' },
+  buffgold: { name: 'Chiêu Tài Phù',  emoji: '🪙', type: 'potion', price: 3000, use: { buff: { k: 'gold', v: 0.5, mins: 60 } }, desc: '+50% vàng trong 60 phút' },
+  buffdrop: { name: 'Hưng Vận Phù',   emoji: '🌈', type: 'potion', price: 5000, use: { buff: { k: 'drop', v: 0.4, mins: 60 } }, desc: '+40% tỉ lệ rơi vật phẩm trong 60 phút' },
+});
+const BUFF_NAME = { exp: 'EXP', gold: 'vàng', drop: 'tỉ lệ rơi vật phẩm' };
+function buffVal(p, k) { const b = p.buffs?.[k]; return b && b.until > Date.now() ? b.v : 0; }
+function openBox(p, kind) {
+  const lines = [];
+  const give = (id, n = 1) => { addItem(p, id, n); lines.push(`🎁 ${label(id)}${n > 1 ? ` x${n}` : ''}`); };
+  if (kind === 'ngoc') for (let k = 0; k < 3; k++) give(`${pick(Object.keys(GEM_KINDS))}${Math.random() < 0.12 ? 2 : 1}`);
+  else if (kind === 'trangbi') {
+    const type = pick(['weapon', 'weapon', 'weapon', 'armor', 'armor', 'armor', 'treasure', 'treasure', 'charm', 'charm']);
+    const r = Math.random(), shift = type === 'treasure' || type === 'charm' ? 1 : 0;
+    const max = { weapon: 4, armor: 3, treasure: 2, charm: 2 }[type], min = { weapon: 2, armor: 2, treasure: 1, charm: 1 }[type];
+    const id = gearId(p.cls, type, Math.max(min, Math.min(max, (r < 0.5 ? 2 : r < 0.85 ? 3 : 4) - shift)));
+    if (id) give(id);
+    if (p.fac && Math.random() < 0.3) { const b = resolveDrop('badge:1', p.cls, p.fac); if (b) give(b); }
+  } else if (kind === 'phu') {
+    const pool = ['phutranthi', 'phuloi', 'phuliethoa', 'phuhothan', 'phuthienloi', 'phudontho', 'hoanmenhphu', 'gaoep'];
+    for (let k = 0; k < 5; k++) give(pick(pool), rand(1, 3));
+  } else if (kind === 'nguyenlieu') {
+    give('loithach', rand(2, 5)); const h = rand(0, 2); if (h) give('huyetngoc', h);
+    give('linhthach', rand(5, 15)); give(pick(['xuongthi', 'nanhholy']), rand(3, 8));
+  } else if (kind === 'vang') {
+    const g = Math.round(rand(2000, 8000) * (1 + p.level / 20)); p.gold += g; lines.push(`💰 **${fmt(g)}** vàng`);
+  }
+  return lines;
+}
+
 /* ═══════════════════════════ CỬA HÀNG ĐẶC BIỆT ═══════════════════════════ */
-const CUR = { gold: ['gold', 'vàng', '🪙'], vd: ['vd', 'Vinh Dự', '🥇'], tl: ['tl', 'Tháp Lệnh', '🗼'], gp: ['gp', 'Cống Hiến', '🏯'] };
-const BM_POOL = ['weapon:3', 'weapon:4', 'armor:3', 'treasure:2', 'charm:2', 'badge:2', 'hong3', 'lam3', 'luc3', 'tu3', 'hoang3', 'loi3', 'phuhokiep', 'loikiepdan', 'tuvi3', 'phubaoho', 'thienvanphu', 'hoanmenhphu', 'thanlinhdan', 'tiendan', 'tuhonchau', 'longnhangioi', 'loithach', 'huyetngoc', 'thientinhchau'];
+const CUR = { gold: ['gold', 'vàng', '🪙'], vd: ['vd', 'Vinh Dự', '🥇'], tl: ['tl', 'Tháp Lệnh', '🗼'], gp: ['gp', 'Cống Hiến', '🏯'], lt: ['inv:linhthach', 'Linh Thạch', '💠'] };
+const BM_POOL = ['weapon:3', 'weapon:4', 'armor:3', 'treasure:2', 'charm:2', 'badge:2', 'hong3', 'lam3', 'luc3', 'tu3', 'hoang3', 'loi3', 'phuhokiep', 'loikiepdan', 'tuvi3', 'phubaoho', 'thienvanphu', 'hoanmenhphu', 'thanlinhdan', 'tiendan', 'tuhonchau', 'longnhangioi', 'loithach', 'huyetngoc', 'thientinhchau', 'ruongtrangbi', 'ruongngoc', 'ruongnguyenlieu', 'vetrieuhoi', 'buffexp', 'buffdrop'];
 const SHOP_DEFS = {
   chodien: { name: 'Chợ Đen', emoji: '🕶️', cur: 'gold', desc: 'Hàng hiếm đổi mới mỗi 6 giờ, có "hàng sốc" giảm 30%. Mỗi người mua giới hạn.' },
   vinhdu: { name: 'Võ Đài Vinh Dự', emoji: '🏟️', cur: 'vd', desc: 'Đổi điểm Vinh Dự (thắng võ đài +10, thua +3, hạ boss thế giới +15).', items: [
@@ -1901,7 +1938,51 @@ const SHOP_DEFS = {
     { k: 'lt', item: 'linhthach', qty: 5, price: 50, lim: 10 }, { k: 'ht', item: 'phuhothan', qty: 3, price: 30, lim: 5 }, { k: 'dl', item: 'dailinhdan', qty: 5, price: 40, lim: 5 }, { k: 'tv1', item: 'tuvi1', qty: 2, price: 60, lim: 5 },
     { k: 'tvp', item: 'thienvanphu', qty: 2, price: 120, lim: 3 }, { k: 'phk', item: 'phuhokiep', qty: 1, price: 200, lim: 2 }, { k: 'tld', item: 'thanlinhdan', qty: 2, price: 150, lim: 3 }, { k: 'nph', item: 'ngocphuho', qty: 1, price: 800, lim: 1 },
     { k: 'bt', item: 'tuvi3', qty: 1, price: 1500, lim: 1, req: { guildLv: 5 } }] },
+  loren: { name: 'Lò Rèn Thần Binh', emoji: '⚒️', cur: 'gold', desc: 'Nguyên liệu cường hóa, thăng phẩm và trang bị đúng phái của bạn. Giới hạn mua mỗi ngày.', items: [
+    { k: 'lt', item: 'linhthach', qty: 10, price: 1100, lim: 10 }, { k: 'ln', item: 'loithach', qty: 3, price: 1500, lim: 5 }, { k: 'hn', item: 'huyetngoc', qty: 1, price: 2200, lim: 3, req: { lv: 20 } },
+    { k: 'tv', item: 'thienvanphu', qty: 2, price: 1500, lim: 5 }, { k: 'bh', item: 'phubaoho', qty: 1, price: 2300, lim: 3 },
+    { k: 'w2', item: 'weapon:2', qty: 1, mult: 1, lim: 1 }, { k: 'w3', item: 'weapon:3', qty: 1, mult: 1.1, lim: 1 }, { k: 'a2', item: 'armor:2', qty: 1, mult: 1, lim: 1 }, { k: 'a3', item: 'armor:3', qty: 1, mult: 1.1, lim: 1 },
+    { k: 't1', item: 'treasure:1', qty: 1, mult: 1, lim: 1 }, { k: 'c1', item: 'charm:1', qty: 1, mult: 1, lim: 1 }, { k: 'c2', item: 'charm:2', qty: 1, mult: 1.1, lim: 1 },
+    { k: 'ac1', item: 'huyenthietgioi', qty: 1, mult: 1, lim: 1 }, { k: 'ac2', item: 'longnhangioi', qty: 1, mult: 1, lim: 1 }] },
+  danduoc: { name: 'Đan Dược Các', emoji: '💊', cur: 'gold', desc: 'Đan hồi máu, hồi linh lực, đan tăng EXP mua theo gói. Giới hạn mua mỗi ngày.', items: [
+    { k: 'd1', item: 'linhdan', qty: 10, mult: 0.9, lim: 5 }, { k: 'd2', item: 'dailinhdan', qty: 5, mult: 0.9, lim: 5 }, { k: 'd3', item: 'thanlinhdan', qty: 2, mult: 0.95, lim: 3 }, { k: 'd4', item: 'tiendan', qty: 1, mult: 0.95, lim: 3 },
+    { k: 'm1', item: 'tudan', qty: 10, mult: 0.9, lim: 5 }, { k: 'm2', item: 'hoilinhdan', qty: 3, mult: 0.95, lim: 3 }, { k: 'm3', item: 'huyenlinhdan', qty: 2, mult: 0.95, lim: 3 },
+    { k: 'e1', item: 'tuvi1', qty: 3, mult: 1, lim: 3 }, { k: 'e2', item: 'tuvi2', qty: 2, mult: 1, lim: 2 }, { k: 'e3', item: 'tuvi3', qty: 1, mult: 1, lim: 1 }, { k: 'hm', item: 'hoanmenhphu', qty: 1, mult: 0.95, lim: 3 }] },
+  phucac: { name: 'Phù Chú Các', emoji: '📜', cur: 'gold', desc: 'Phù trấn thi, phù lôi, phù hộ thân, gạo nếp... mua theo gói. Giới hạn mua mỗi ngày.', items: [
+    { k: 'p1', item: 'phutranthi', qty: 5, mult: 0.9, lim: 5 }, { k: 'p2', item: 'gaoep', qty: 10, mult: 0.9, lim: 5 }, { k: 'p3', item: 'phuloi', qty: 5, mult: 0.9, lim: 5 }, { k: 'p4', item: 'phuliethoa', qty: 3, mult: 0.9, lim: 4 },
+    { k: 'p5', item: 'phuhothan', qty: 3, mult: 0.9, lim: 4 }, { k: 'p6', item: 'phudontho', qty: 3, mult: 0.9, lim: 4 }, { k: 'p7', item: 'phuthienloi', qty: 2, mult: 0.95, lim: 3 }, { k: 'p8', item: 'hoanmenhphu', qty: 2, mult: 0.95, lim: 3 },
+    { k: 'k1', item: 'phuhokiep', qty: 1, mult: 1, lim: 3 }, { k: 'k2', item: 'loikiepdan', qty: 1, mult: 1, lim: 3 }] },
+  baongoc: { name: 'Bảo Ngọc Các', emoji: '💎', cur: 'gold', desc: 'Bảy loại bảo ngọc ba bậc để khảm vào trang bị. Giới hạn mua mỗi ngày.', items: Object.keys(GEM_KINDS).flatMap((k) => [
+    { k: `${k}1`, item: `${k}1`, qty: 3, mult: 0.95, lim: 3 }, { k: `${k}2`, item: `${k}2`, qty: 1, mult: 1.1, lim: 2 }, { k: `${k}3`, item: `${k}3`, qty: 1, mult: 1.6, lim: 1 }]) },
+  thuongnhan: { name: 'Thương Nhân Lang Thang', emoji: '🧳', cur: 'gold', desc: 'Hàng giảm giá 25–50%, đổi mới mỗi ngày. Mỗi món mua tối đa 3 lần.' },
+  phephai: { name: 'Phe Phái Các', emoji: '⚖️', cur: 'gold', needFac: true, desc: 'Lệnh bài và vật phẩm riêng của phe bạn. Cần đã chọn phe (/phe chon).', items: [
+    { k: 'b0', item: 'badge:0', qty: 1, mult: 1, lim: 1 }, { k: 'b1', item: 'badge:1', qty: 1, mult: 1, lim: 1 }, { k: 'df', item: 'thedoiphe', qty: 1, price: 30000, lim: 1 }, { k: 'hm', item: 'hoanmenhphu', qty: 3, price: 3500, lim: 2 },
+    { k: 'bc', fac: 'chinh', item: 'phuhothan', qty: 5, price: 800, lim: 3 }, { k: 'bm', fac: 'ma', item: 'phuliethoa', qty: 5, price: 900, lim: 3 }, { k: 'bt', fac: 'tieudao', item: 'phudontho', qty: 5, price: 700, lim: 3 }] },
+  linhphuong: { name: 'Linh Thạch Phường', emoji: '💠', cur: 'lt', desc: 'Đổi Linh Thạch (rơi từ yêu ma, điểm danh) lấy đan, ngọc và trang bị quý.', items: [
+    { k: 'e2', item: 'tuvi2', qty: 1, price: 35, lim: 3 }, { k: 'e3', item: 'tuvi3', qty: 1, price: 130, lim: 2 }, { k: 'bh', item: 'phubaoho', qty: 1, price: 22, lim: 3 }, { k: 'tv', item: 'thienvanphu', qty: 1, price: 12, lim: 5 },
+    { k: 'hm', item: 'hoanmenhphu', qty: 1, price: 12, lim: 3 }, { k: 'hk', item: 'phuhokiep', qty: 1, price: 15, lim: 3 }, { k: 'ld', item: 'loikiepdan', qty: 1, price: 12, lim: 3 },
+    { k: 'g1', item: 'hong3', qty: 1, price: 110, lim: 1 }, { k: 'g2', item: 'lam3', qty: 1, price: 110, lim: 1 }, { k: 'g3', item: 'luc3', qty: 1, price: 110, lim: 1 }, { k: 'g4', item: 'tu3', qty: 1, price: 110, lim: 1 }, { k: 'g5', item: 'hoang3', qty: 1, price: 110, lim: 1 }, { k: 'g6', item: 'loi3', qty: 1, price: 110, lim: 1 },
+    { k: 'w3', item: 'weapon:3', qty: 1, price: 90, lim: 1 }, { k: 'a3', item: 'armor:3', qty: 1, price: 90, lim: 1 }, { k: 'b1', item: 'badge:1', qty: 1, price: 120, lim: 1 }, { k: 'th', item: 'tuhonchau', qty: 1, price: 180, lim: 1 }, { k: 'df', item: 'thedoiphe', qty: 1, price: 200, lim: 1 },
+    { k: 'rt', item: 'ruongtrangbi', qty: 1, price: 100, lim: 2 }, { k: 'rn', item: 'ruongngoc', qty: 1, price: 30, lim: 3 }, { k: 'vt', item: 'vetrieuhoi', qty: 1, price: 14, lim: 5 }] },
+  phucloi: { name: 'Phúc Lợi Quán', emoji: '🎁', cur: 'gold', desc: 'Quà MIỄN PHÍ mỗi ngày cho mọi đạo hữu. Càng lên cấp càng nhiều quà.', items: [
+    { k: 'f1', item: 'linhdan', qty: 5, price: 0, lim: 1 }, { k: 'f2', item: 'tudan', qty: 3, price: 0, lim: 1 }, { k: 'f3', item: 'linhthach', qty: 2, price: 0, lim: 1 }, { k: 'f4', item: 'phutranthi', qty: 3, price: 0, lim: 1 }, { k: 'f5', item: 'gaoep', qty: 5, price: 0, lim: 1 },
+    { k: 'f6', item: 'ruongvang', qty: 1, price: 0, lim: 1, req: { lv: 10 } }, { k: 'f7', item: 'dailinhdan', qty: 3, price: 0, lim: 1, req: { lv: 15 } }, { k: 'f8', item: 'ruongngoc', qty: 1, price: 0, lim: 1, req: { lv: 25 } }, { k: 'f9', item: 'buffexp', qty: 1, price: 0, lim: 1, req: { lv: 30 } }] },
+  tanthu: { name: 'Tạp Hóa Tân Thủ', emoji: '🧸', cur: 'gold', desc: 'Gói đồ giá rẻ dành cho đạo hữu từ cấp 20 trở xuống.', items: [
+    { k: 'n1', item: 'linhdan', qty: 10, price: 300, lim: 3, req: { maxLv: 20 } }, { k: 'n2', item: 'tudan', qty: 5, price: 250, lim: 3, req: { maxLv: 20 } }, { k: 'n3', item: 'phutranthi', qty: 5, price: 350, lim: 3, req: { maxLv: 20 } },
+    { k: 'n4', item: 'gaoep', qty: 10, price: 150, lim: 3, req: { maxLv: 20 } }, { k: 'n5', item: 'phuloi', qty: 3, price: 350, lim: 3, req: { maxLv: 20 } }, { k: 'n6', item: 'tuvi1', qty: 2, price: 1200, lim: 2, req: { maxLv: 20 } },
+    { k: 'g0', item: 'weapon:0', qty: 1, mult: 0.5, lim: 1, req: { maxLv: 20 } }, { k: 'g1', item: 'armor:0', qty: 1, mult: 0.5, lim: 1, req: { maxLv: 20 } }, { k: 'g2', item: 'weapon:1', qty: 1, mult: 0.7, lim: 1, req: { maxLv: 20 } },
+    { k: 'g3', item: 'armor:1', qty: 1, mult: 0.7, lim: 1, req: { maxLv: 20 } }, { k: 'g4', item: 'treasure:0', qty: 1, mult: 0.7, lim: 1, req: { maxLv: 20 } }, { k: 'g5', item: 'charm:0', qty: 1, mult: 0.7, lim: 1, req: { maxLv: 20 } }] },
+  ruong: { name: 'Tiệm Rương Bí Ẩn', emoji: '🎲', cur: 'gold', desc: 'Rương ngọc, trang bị, phù, nguyên liệu, vàng. Mua về rồi mở bằng /dung để thử vận may.', items: [
+    { k: 'r1', item: 'ruongngoc', qty: 1, price: 6000, lim: 5 }, { k: 'r2', item: 'ruongtrangbi', qty: 1, price: 25000, lim: 3, req: { lv: 10 } }, { k: 'r3', item: 'ruongphu', qty: 1, price: 5000, lim: 5 },
+    { k: 'r4', item: 'ruongnguyenlieu', qty: 1, price: 12000, lim: 4, req: { lv: 15 } }, { k: 'r5', item: 'ruongvang', qty: 1, price: 3000, lim: 5 }] },
+  linhthu: { name: 'Linh Thú Quán', emoji: '🐾', cur: 'gold', desc: 'Vé triệu hồi đệ tử và nguyên liệu tiến hóa đệ tử. Giới hạn mua mỗi ngày.', items: [
+    { k: 'v1', item: 'vetrieuhoi', qty: 1, price: 1400, lim: 5 }, { k: 'v10', item: 'vetrieuhoi', qty: 10, price: 12500, lim: 2 }, { k: 'ev1', item: 'linhthach', qty: 10, price: 1100, lim: 10 },
+    { k: 'ev2', item: 'loithach', qty: 3, price: 1500, lim: 5 }, { k: 'ev3', item: 'huyetngoc', qty: 1, price: 2200, lim: 3, req: { lv: 20 } }] },
+  caiphuc: { name: 'Cầu Phúc Đàn', emoji: '🙏', cur: 'gold', desc: 'Bùa phúc tăng EXP, vàng, tỉ lệ rơi đồ trong 60 phút. Dùng bằng /dung, cộng dồn thời gian.', items: [
+    { k: 'b1', item: 'buffexp', qty: 1, price: 4000, lim: 5 }, { k: 'b2', item: 'buffgold', qty: 1, price: 3000, lim: 5 }, { k: 'b3', item: 'buffdrop', qty: 1, price: 5000, lim: 5 }, { k: 'b4', item: 'buffexp', qty: 5, price: 17000, lim: 2 }] },
 };
+const THUONG_POOL = ['ruongphu', 'ruongvang', 'buffgold', 'linhdan', 'dailinhdan', 'thanlinhdan', 'tudan', 'hoilinhdan', 'tuvi1', 'tuvi2', 'phutranthi', 'phuloi', 'phuliethoa', 'phuhothan', 'phuthienloi', 'phubaoho', 'thienvanphu', 'hoanmenhphu', 'phuhokiep', 'loikiepdan', 'linhthach', 'loithach', 'huyetngoc',
+  ...Object.keys(GEM_KINDS).flatMap((k) => [`${k}1`, `${k}2`])];
 function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 const unitValue = (id) => ITEMS[id].price ?? (ITEMS[id].sell ? ITEMS[id].sell * 5 : 500);
 const bmBucket = () => Math.floor(Date.now() / (6 * 3600 * 1000));
@@ -1909,25 +1990,39 @@ function shopOffers(p, shopId) {
   const log = p.shopLog, today = Math.floor(Date.now() / 86400000);
   if (log.day !== today) { log.day = today; log.counts = {}; }
   const out = [], def = SHOP_DEFS[shopId];
+  const disc = def.cur === 'gold' ? VIP_PERK.disc[vipLevel(p)] : 0; // VIP giảm giá ở mọi cửa hàng trả bằng vàng
+  const apply = (n) => (n <= 0 ? 0 : Math.max(1, Math.round(n * (1 - disc))));
   if (shopId === 'chodien') {
     const bucket = bmBucket(), r = rng(bucket * 2654435761), pool = [...BM_POOL];
-    for (let n = 0; n < 8 && pool.length; n++) {
+    for (let n = 0; n < 10 && pool.length; n++) {
       const pk = pool.splice(Math.floor(r() * pool.length), 1)[0];
       const gear = pk.includes(':'), qty = gear ? 1 : 1 + Math.floor(r() * 3), flash = r() < 0.25;
       const id = resolveDrop(pk, p.cls, p.fac);
       if (!id || !ITEMS[id]) continue;
-      out.push({ key: `bm${bucket}-${pk}`, id, qty, price: Math.round(unitValue(id) * qty * (gear ? 2.5 : 1.8) * (flash ? 0.7 : 1)), lim: gear ? 1 : 2, flash });
+      out.push({ key: `bm${bucket}-${pk}`, id, qty, price: apply(unitValue(id) * qty * (gear ? 2.5 : 1.8) * (flash ? 0.7 : 1)), lim: gear ? 1 : 2, flash });
+    }
+  } else if (shopId === 'thuongnhan') {
+    const r = rng(today * 40503 + 17), pool = [...THUONG_POOL];
+    for (let n = 0; n < 7 && pool.length; n++) {
+      const id = pool.splice(Math.floor(r() * pool.length), 1)[0], qty = 1 + Math.floor(r() * 3), off = 0.25 + r() * 0.25;
+      if (!ITEMS[id]) continue;
+      out.push({ key: `tn${today}-${id}`, id, qty, price: apply(unitValue(id) * qty * (1 - off)), lim: 3, flash: off >= 0.4 });
     }
   } else {
+    if (def.needFac && !p.fac) return [];
     for (const it of def.items) {
+      if (it.fac && it.fac !== p.fac) continue;
       const id = resolveDrop(it.item, p.cls, p.fac);
       if (!id || !ITEMS[id]) continue;
       let locked = null;
       if (shopId === 'tongmon' && !p.guild) locked = 'Cần gia nhập tông môn';
+      else if (it.req?.maxLv && p.level > it.req.maxLv) locked = `Chỉ dành cho cấp ≤ ${it.req.maxLv}`;
       else if (it.req?.lv && p.level < it.req.lv) locked = `Cần cấp ${it.req.lv}`;
       else if (it.req?.tower && p.towerBest < it.req.tower) locked = `Cần leo tháp tầng ${it.req.tower}`;
       else if (it.req?.guildLv && (db.guilds[p.guild]?.lv || 0) < it.req.guildLv) locked = `Cần tông môn cấp ${it.req.guildLv}`;
-      out.push({ key: it.k, id, qty: it.qty, price: it.price, lim: it.lim, locked });
+      else if (ITEMS[id].lv > p.level) locked = `Cần cấp ${ITEMS[id].lv}`;
+      const price = it.price != null ? it.price : unitValue(id) * it.qty * (it.mult || 1);
+      out.push({ key: it.k, id, qty: it.qty, price: apply(price), lim: it.lim, locked });
     }
   }
   for (const o of out) o.used = log.counts[`${shopId}:${o.key}`] || 0;
@@ -1935,28 +2030,32 @@ function shopOffers(p, shopId) {
 }
 function buyOffer(p, shopId, key) {
   const def = SHOP_DEFS[shopId]; if (!def) return { ok: false, msg: '❌ Cửa hàng không tồn tại.' };
+  if (def.needFac && !p.fac) return { ok: false, msg: '⚖️ Bạn cần chọn phe trước (`/phe chon`).' };
   const o = shopOffers(p, shopId).find((x) => x.key === key);
-  if (!o) return { ok: false, msg: '❌ Mặt hàng này đã hết hạn hoặc không tồn tại (Chợ Đen đổi hàng mỗi 6 giờ).' };
+  if (!o) return { ok: false, msg: '❌ Mặt hàng này đã hết hạn hoặc không tồn tại (Chợ Đen đổi hàng mỗi 6 giờ, Thương Nhân mỗi ngày).' };
   if (o.locked) return { ok: false, msg: `🔒 ${o.locked}.` };
-  if (o.used >= o.lim) return { ok: false, msg: `⛔ Bạn đã mua hết lượt (${o.used}/${o.lim}).` };
+  if (o.used >= o.lim) return { ok: false, msg: `⛔ Bạn đã mua hết lượt hôm nay (${o.used}/${o.lim}).` };
   const [field, cname, cemoji] = CUR[def.cur];
-  if ((p[field] || 0) < o.price) return { ok: false, msg: `${cemoji} Cần **${fmt(o.price)}** ${cname} (bạn có ${fmt(p[field] || 0)}).` };
-  p[field] -= o.price; addItem(p, o.id, o.qty); p.shopLog.counts[`${shopId}:${key}`] = o.used + 1;
+  const asItem = field.startsWith('inv:'), iid = asItem ? field.slice(4) : null;
+  const bal = asItem ? count(p, iid) : (p[field] || 0);
+  if (bal < o.price) return { ok: false, msg: `${cemoji} Cần **${fmt(o.price)}** ${cname} (bạn có ${fmt(bal)}).` };
+  if (asItem) removeItem(p, iid, o.price); else p[field] -= o.price;
+  addItem(p, o.id, o.qty); p.shopLog.counts[`${shopId}:${key}`] = o.used + 1;
   return { ok: true, msg: `✅ Đã mua **${o.qty}x ${label(o.id)}** với **${fmt(o.price)}** ${cemoji}.` };
 }
 function tiemView(p, uid, shopId = 'hub', note = '') {
-  const wallet = `🪙 ${fmt(p.gold)} • 🥇 ${fmt(p.vd)} Vinh Dự • 🗼 ${fmt(p.tl)} Tháp Lệnh • 🏯 ${fmt(p.gp)} Cống Hiến • 💎 ${fmt(p.nb)} Nguyên Bảo`;
+  const wallet = `🪙 ${fmt(p.gold)} • 🥇 ${fmt(p.vd)} Vinh Dự • 🗼 ${fmt(p.tl)} Tháp Lệnh • 🏯 ${fmt(p.gp)} Cống Hiến • 💠 ${fmt(count(p, 'linhthach'))} Linh Thạch • 💎 ${fmt(p.nb)} Nguyên Bảo`;
   const shopMenu = new StringSelectMenuBuilder().setCustomId(`tiemsel:${uid}`).setPlaceholder('🏪 Chọn cửa hàng...')
     .addOptions(Object.entries(SHOP_DEFS).map(([k, d]) => ({ label: d.name, value: k, emoji: d.emoji, description: d.desc.slice(0, 100), default: k === shopId })));
   if (shopId === 'hub' || !SHOP_DEFS[shopId]) {
     const e = embed(0x16a085).setTitle('🏪 Các cửa hàng đặc biệt')
-      .setDescription(`${note ? `${note}\n\n` : ''}${wallet}\n\n${Object.values(SHOP_DEFS).map((d) => `${d.emoji} **${d.name}** (${CUR[d.cur][2]} ${CUR[d.cur][1]})\n┗ *${d.desc}*`).join('\n')}\n\n🏮 Tiệm Cửu Thúc (vàng): \`/cuahang\` • 💎 Cửa hàng Nguyên Bảo: \`/vipshop\``);
+      .setDescription(`${note ? `${note}\n\n` : ''}${wallet}\n\n${Object.values(SHOP_DEFS).map((d) => `${d.emoji} **${d.name}** (${CUR[d.cur][2]} ${CUR[d.cur][1]})\n┗ *${d.desc}*`).join('\n')}\n\n⏱️ Giới hạn mua reset mỗi ngày (7h sáng giờ VN) • VIP được giảm giá ở mọi cửa hàng trả bằng vàng\n🏮 Tiệm Cửu Thúc (vàng): \`/cuahang\` • 💎 Cửa hàng Nguyên Bảo: \`/vipshop\``);
     return { content: '', embeds: [e], components: [row(shopMenu)] };
   }
   const def = SHOP_DEFS[shopId], offers = shopOffers(p, shopId), cur = CUR[def.cur];
-  const lines = offers.map((o) => `${o.locked ? '🔒 ' : ''}${ITEMS[o.id].emoji} **${ITEMS[o.id].name}**${o.qty > 1 ? ` x${o.qty}` : ''}${o.flash ? ' 🔥' : ''} – ${fmt(o.price)}${cur[2]} • ${o.used}/${o.lim}${o.locked ? ` • *${o.locked}*` : ''}`);
+  const lines = offers.map((o) => `${o.locked ? '🔒 ' : ''}${ITEMS[o.id].emoji} **${ITEMS[o.id].name}**${o.qty > 1 ? ` x${o.qty}` : ''}${o.flash ? ' 🔥' : ''} – ${o.price ? `${fmt(o.price)}${cur[2]}` : '**Miễn phí**'} • ${o.used}/${o.lim}${o.locked ? ` • *${o.locked}*` : ''}`);
   const refresh = shopId === 'chodien' ? `\n⏰ Đổi hàng <t:${(bmBucket() + 1) * 6 * 3600}:R>` : '';
-  const e = embed(0x16a085).setTitle(`${def.emoji} ${def.name}`).setDescription(`${note ? `${note}\n\n` : ''}${wallet}${refresh}\n\n${lines.join('\n') || '*Hết hàng*'}`);
+  const e = embed(0x16a085).setTitle(`${def.emoji} ${def.name}`).setDescription(`${note ? `${note}\n\n` : ''}${wallet}${refresh}${vipLevel(p) && def.cur === 'gold' ? `\n👑 VIP ${vipLevel(p)}: giảm ${pct(VIP_PERK.disc[vipLevel(p)])} giá` : ''}${shopId === 'thuongnhan' ? `\n⏰ Đổi hàng <t:${(Math.floor(Date.now() / 86400000) + 1) * 86400}:R>` : ''}\n\n${lines.join('\n') || (def.needFac && !p.fac ? '*Cần chọn phe (`/phe chon`) để vào cửa hàng này.*' : '*Hết hàng*')}`);
   const rows = [row(shopMenu)];
   if (offers.length) {
     rows.push(row(new StringSelectMenuBuilder().setCustomId(`tiembuy:${shopId}:${uid}`).setPlaceholder(`🛒 Chọn món để mua (${cur[1]})...`)
@@ -2059,7 +2158,7 @@ const commands = [
     .addSubcommand((c) => c.setName('thongke').setDescription('Thống kê bot và dữ liệu'))
     .addSubcommand((c) => c.setName('saoluu').setDescription('Sao lưu dữ liệu ngay'))
     .addSubcommand((c) => c.setName('xuatdata').setDescription('Tải toàn bộ file dữ liệu')),
-  new SlashCommandBuilder().setName('tiem').setDescription('🏪 Cửa hàng đặc biệt: Chợ Đen, Võ Đài, Tháp Lệnh, Tông Môn'),
+  new SlashCommandBuilder().setName('tiem').setDescription('🏪 11 cửa hàng đặc biệt: Chợ Đen, Lò Rèn, Đan Dược, Phù Chú, Bảo Ngọc, Thương Nhân...'),
   new SlashCommandBuilder().setName('tinhluyen').setDescription('🔥 Tinh luyện trang bị: thêm dòng hiệu ứng ngẫu nhiên')
     .addStringOption((o) => itemOpt(o, 'Trang bị muốn tinh luyện')),
   new SlashCommandBuilder().setName('thangpham').setDescription('🌟 Thăng phẩm trang bị: Phàm → Linh → Bảo → Tiên → Thần')
@@ -2105,6 +2204,8 @@ function profileEmbed(p, user) {
       { name: '🎽 Trang bị', value: eq, inline: false },
     );
   if (pkLines) e.addFields({ name: '🔱 Hiệu ứng pháp bảo', value: pkLines, inline: false });
+  const bf = Object.entries(p.buffs || {}).filter(([, b]) => b.until > Date.now()).map(([k, b]) => `${BUFF_NAME[k]} +${pct(b.v)} (<t:${Math.floor(b.until / 1000)}:R>)`);
+  if (bf.length) e.addFields({ name: '✨ Bùa phúc đang chạy', value: bf.join(' • '), inline: false });
   e.addFields({ name: '📊 Chiến tích', value: `Yêu ma đã diệt: **${fmt(p.kills)}** • Boss: **${p.bossKills}** • Bại trận: **${p.deaths}**`, inline: false });
   return e;
 }
@@ -2187,10 +2288,20 @@ const handlers = {
     const p = getPlayer(i); if (!p) return;
     if (inFight(i)) return busy(i);
     const id = i.options.getString('vatpham'), it = ITEMS[id];
-    if (!it || it.type !== 'potion' || !count(p, id)) return i.reply({ content: '❌ Bạn không có đan dược đó.', flags: EPH });
+    if (!it || !['potion', 'chest'].includes(it.type) || !count(p, id)) return i.reply({ content: '❌ Bạn không có vật phẩm đó.', flags: EPH });
     if (it.use.exp && atBottleneck(p)) return i.reply({ content: '⚡ Bạn đã chạm bình cảnh, không thể hấp thụ thêm EXP. Hãy dùng `/dokiep` trước!', flags: EPH });
     const s = stats(p);
     removeItem(p, id);
+    if (it.use.box) {
+      const got = openBox(p, it.use.box); save();
+      return i.reply({ embeds: [embed(0xf39c12).setTitle(`${it.emoji} ${p.name} mở ${it.name}!`).setDescription(got.join('\n'))] });
+    }
+    if (it.use.buff) {
+      p.buffs ??= {};
+      const b = it.use.buff, now = Date.now(), cur = p.buffs[b.k];
+      p.buffs[b.k] = { v: b.v, until: (cur && cur.until > now ? cur.until : now) + b.mins * 60000 }; save();
+      return i.reply({ content: `${it.emoji} Dùng **${it.name}**: +${pct(b.v)} ${BUFF_NAME[b.k]}, hiệu lực đến <t:${Math.floor(p.buffs[b.k].until / 1000)}:R> (dùng thêm sẽ cộng dồn thời gian).`, flags: EPH });
+    }
     let extra = '';
     if (it.use.heal) p.hp = Math.min(s.maxHp, p.hp + Math.round(it.use.heal * (CLASSES[p.cls].potBoost || 1)));
     if (it.use.mana) p.mp = Math.min(s.maxMp, p.mp + it.use.mana);
@@ -2347,13 +2458,13 @@ const handlers = {
 
   async trieuhoi(i) {
     const p = getPlayer(i); if (!p) return;
-    const n = i.options.getInteger('so_lan') || 1, cost = n === 10 ? PET_COST * 9 : PET_COST;
-    if (p.gold < cost) return i.reply({ content: `💸 Cần **${fmt(cost)}** vàng để triệu hồi.`, flags: EPH });
-    p.gold -= cost;
+    const n = i.options.getInteger('so_lan') || 1, useTicket = count(p, 'vetrieuhoi') >= n, cost = useTicket ? 0 : (n === 10 ? PET_COST * 9 : PET_COST);
+    if (p.gold < cost) return i.reply({ content: `💸 Cần **${fmt(cost)}** vàng (hoặc ${n} 🎟️ Vé Triệu Hồi) để triệu hồi.`, flags: EPH });
+    p.gold -= cost; if (useTicket) removeItem(p, 'vetrieuhoi', n);
     const res = Array.from({ length: n }, () => summonOnce(p));
     save();
     const icon = { R: '⚪', SR: '🟣', SSR: '🌟' };
-    return i.reply({ embeds: [embed(0x16a085).setTitle('🎲 Triệu hồi đệ tử')
+    return i.reply({ embeds: [embed(0x16a085).setTitle(useTicket ? `🎟️ Triệu hồi bằng ${n} vé` : '🎲 Triệu hồi đệ tử')
       .setDescription(`${res.map((r) => `${icon[r.rar]} ${PETS[r.id].emoji} **${PETS[r.id].name}** \`${r.rar}\` – ${r.note}`).join('\n')}\n\n💰 Còn ${fmt(p.gold)} vàng • Bảo đảm SSR: ${p.pity}/30\nDùng \`/dedu\` để chọn đệ tử đồng hành.`)] });
   },
 
@@ -2567,11 +2678,12 @@ const handlers = {
         '**Cường hóa:** `/cuonghoa` – lên đến +15, tỉ lệ giảm dần. Thất bại có thể **tụt cấp, bị sét đánh, vỡ đồ**! Dùng 🍀 Thiên Vận Phù (+10%) và 🧿 Phù Bảo Hộ để an toàn.',
         '**Độ kiếp:** mỗi 10 cấp bạn chạm bình cảnh. Dùng `/dokiep` để chịu thiên lôi, vượt qua sẽ đột phá cảnh giới (+10% chỉ số gốc).',
         '**Môn phái:** 18 phái – Mao Sơn, Phù Chú Sư, Võ Đạo Sĩ, 🧘 Thiếu Lâm, 🗡️ Thục Sơn, 🧟 Ngự Thi Sư, 👺 Quỷ Đạo, 🍶 Cái Bang, 🌿 Dược Vương, 🎯 Đường Môn, 🧭 Phong Thủy, 🐛 Cổ Sư, 🌀 Võ Đang, 🌸 Nga Mi, 🏔️ Hoa Sơn, 🔥 Minh Giáo, ❄️ Côn Lôn, 🔮 Thiên Cơ Các. Mỗi phái có nội tại riêng (xem `/kynang`).',
-        '**Cửa hàng:** `/cuahang` (Tiệm Cửu Thúc), `/tiem` (🕶️ Chợ Đen đổi hàng mỗi 6h, 🏟️ Võ Đài, 🗼 Tháp Lệnh, 🏯 Tông Môn), `/vipshop` (💎).',
+        '**Cửa hàng:** `/cuahang` (Tiệm Cửu Thúc), `/tiem` (11 cửa hàng: 🕶️ Chợ Đen, ⚒️ Lò Rèn, 💊 Đan Dược, 📜 Phù Chú, 💎 Bảo Ngọc, 🧳 Thương Nhân đổi hàng mỗi ngày, ⚖️ Phe Phái, 💠 Linh Thạch Phường, 🏟️ Võ Đài, 🗼 Tháp Lệnh, 🏯 Tông Môn), `/vipshop` (💎).',
         '**Nâng cấp trang bị:** `/cuonghoa` (+15) → `/thangpham` (⬜Phàm→🟩Linh→🟦Bảo→🟪Tiên→🟨Thần) → `/tinhluyen` (dòng hiệu ứng ngẫu nhiên) → `/khamngoc`. Thêm `/congphap` (9 công pháp cấp 1–10) và tiến hóa đệ tử trong `/dedu`.',
         '**Phe:** `/phe chon` – ☀️ Chính Đạo / 🌑 Ma Đạo / 🍃 Tiêu Dao, mỗi phe có buff, Lệnh bài riêng và bảng điểm tuần.',
         '**VIP:** `/vip xem`, `/vip nhanqua`, `/vipshop` – Nguyên Bảo kiếm miễn phí qua điểm danh, boss, độ kiếp, thành tựu.',
         '**Lưu dữ liệu:** `/luudata` – tự lưu liên tục, sao lưu 30 phút/lần, tải bản sao nhân vật.',
+        '**Cửa hàng:** `/tiem` có 16 tiệm – Chợ Đen, Lò Rèn, Đan Dược, Phù Chú, Bảo Ngọc, Thương Nhân, 🎁 Phúc Lợi (quà free mỗi ngày), 🧸 Tân Thủ, 🎲 Rương Bí Ẩn, 🐾 Linh Thú, 🙏 Cầu Phúc... Mở rương/dùng bùa phúc bằng `/dung`.',
         '**Trấn Yêu Tháp:** `/thap` – leo từng tầng, mỗi 10 tầng có boss, thua không mất vàng. `/thap bxh` xem xếp hạng.',
         '**Boss Thế Giới:** `/bosstg` – cả server cùng đánh một boss, chia thưởng theo sát thương.',
         '**Tông môn:** `/tongmon` – lập/gia nhập, cống hiến vàng để nâng cấp, cả nhóm cùng được cộng % chỉ số.',
@@ -2597,7 +2709,7 @@ async function handleAuto(i) {
   switch (i.commandName) {
     case 'mua': ids = Object.keys(ITEMS).filter((id) => ITEMS[id].shop && mineCls(id)); break;
     case 'ban': ids = inv; break;
-    case 'dung': ids = inv.filter((id) => ITEMS[id].type === 'potion'); break;
+    case 'dung': ids = inv.filter((id) => ['potion', 'chest'].includes(ITEMS[id].type)); break;
     case 'trangbi': ids = inv.filter((id) => SLOT_OF[ITEMS[id].type] && mineCls(id)); break;
     case 'tinhluyen': case 'thangpham': case 'khamngoc': case 'cuonghoa': ids = [...new Set([...inv, ...Object.values(p?.equip || {})])].filter((id) => id && canEnhance(id)); break;
     case 'chetao': ids = Object.keys(RECIPES).filter(mineCls); break;
@@ -2788,4 +2900,4 @@ async function main() {
 }
 
 if (process.env.DAOSI_TEST !== '1') main();
-module.exports = { commands, ITEMS, RECIPES, GEAR, CLASSES, MAPS, newPlayer, stats, perks, beginFight, act, fightView, enhanceAttempt, enhView, shopView, simKiep, kiepView, gainExp, migrate, buy, fights, capOf, atBottleneck, expNeed, ENH_RATE, handlers, PETS, summonOnce, simulateDuel, gemView, gemStats, socketsOf, petScale, petView, ACH, checkAch, titleBonus, beginTower, towerMonster, wbSync, wbSpawn, wbAttack, settleWb, db, guildCreate, guildJoin, guildLeave, guildDonate, guildBonus, marketPost, marketBuy, marketCancel, marketSync, randomEvent, achView, wbView, marketView, profileEmbed, resultView, handleAuto, handleButton, handleSelect, AFFIX, affReroll, affView, affSlots, extraTotals, GRADE_Q, GRADE_NEED, gradeAttempt, gradeView, TECHS, techUp, techView, techCost, PET_EVO, petEvolve, SHOP_DEFS, shopOffers, buyOffer, tiemView, BM_POOL, passiveText, gradeOf, FACTIONS, FAC_GEAR, VIP_SHOP, VIP_PERK, VIP_STEPS, vipLevel, vipBuy, vipShopView, vipEmbed, facView, leadingFaction, fpSync, expMul, goldMul, priceFor, backup, listBackups, saveNow, writeDb, DB_FILE, BACKUP_DIR, loadDb, isAdmin, CLASS_GEAR_MOD, GEM_KINDS };
+module.exports = { commands, ITEMS, RECIPES, GEAR, CLASSES, MAPS, newPlayer, stats, perks, beginFight, act, fightView, enhanceAttempt, enhView, shopView, simKiep, kiepView, gainExp, migrate, buy, fights, capOf, atBottleneck, expNeed, ENH_RATE, handlers, PETS, summonOnce, simulateDuel, gemView, gemStats, socketsOf, petScale, petView, ACH, checkAch, titleBonus, beginTower, towerMonster, wbSync, wbSpawn, wbAttack, settleWb, db, guildCreate, guildJoin, guildLeave, guildDonate, guildBonus, marketPost, marketBuy, marketCancel, marketSync, randomEvent, achView, wbView, marketView, profileEmbed, resultView, openBox, buffVal, BUFF_NAME, handleAuto, handleButton, handleSelect, AFFIX, affReroll, affView, affSlots, extraTotals, GRADE_Q, GRADE_NEED, gradeAttempt, gradeView, TECHS, techUp, techView, techCost, PET_EVO, petEvolve, SHOP_DEFS, shopOffers, buyOffer, tiemView, BM_POOL, passiveText, gradeOf, FACTIONS, FAC_GEAR, VIP_SHOP, VIP_PERK, VIP_STEPS, vipLevel, vipBuy, vipShopView, vipEmbed, facView, leadingFaction, fpSync, expMul, goldMul, priceFor, backup, listBackups, saveNow, writeDb, DB_FILE, BACKUP_DIR, loadDb, isAdmin, CLASS_GEAR_MOD, GEM_KINDS };
