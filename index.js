@@ -1,4 +1,4 @@
-// ☯️ ĐẠO SĨ BOT v4.6 – Bot RPG Discord lấy cảm hứng từ phim "Cương Thi Tiên Sinh"
+// ☯️ ĐẠO SĨ BOT v4.7 – Bot RPG Discord lấy cảm hứng từ phim "Cương Thi Tiên Sinh"
 // Nhân vật: 18 môn phái, 3 phe, VIP/Nguyên Bảo • Đồ: riêng từng phái, pháp bảo, bùa, lệnh bài phe
 // Nâng cấp: cường hóa +20 (sét đánh, cấp Thiên), luyện tuyệt kỹ, thăng phẩm, tinh luyện, khảm ngọc, công pháp, độ thiên kiếp, tiến hóa đệ tử
 // Hoạt động: săn 6 khu vực, Trấn Yêu Tháp, boss thế giới, võ đài PvP, tông môn, chợ, 16 cửa hàng, rương, bùa phúc, nhiệm vụ theo phái & cảnh giới, thành tựu
@@ -773,6 +773,7 @@ function perks(p) {
     for (const [key, v] of Object.entries(gemStats(p, id).perk)) r[key] += v;
   }
   for (const [key, v] of Object.entries(FACTIONS[p.fac]?.perk || {})) r[key] += v;
+  const mkh = buffVal(p, 'makhi'); if (mkh) { r.crit += mkh; r.lifesteal += mkh / 2; }
   for (const [key, v] of Object.entries(CLASSES[p.cls]?.perk || {})) r[key] += v;
   for (const [key, v] of Object.entries(extraTotals(p).perk)) r[key] += v;
   r.dodge = Math.min(r.dodge, 0.4); r.reduce = Math.min(r.reduce, 0.5); r.regen = Math.round(r.regen);
@@ -933,7 +934,7 @@ function winRewards(p, f) {
 function act(p, f, action) {
   const s = stats(p), pk = perks(p), m = f.m, cls = CLASSES[p.cls], log = [];
   const critC = 0.15 + pk.crit;
-  const pet = p.pet && p.pets?.[p.pet] ? { ...PETS[p.pet], star: p.pets[p.pet].star, evo: p.pets[p.pet].evo || 0, boost: CLASSES[p.cls].petBoost || 1 } : null;
+  const pet = p.pet && p.pets?.[p.pet] ? { ...PETS[p.pet], star: p.pets[p.pet].star, evo: p.pets[p.pet].evo || 0, boost: (CLASSES[p.cls].petBoost || 1) * (1 + buffVal(p, 'thikhi')) } : null;
   const heal = (n) => { const b = p.hp; p.hp = Math.min(s.maxHp, p.hp + n); return p.hp - b; };
   const hit = (mult = 1, ignoreDef = false, ls = 0) => {
     const r = calcDmg(s.atk, m.def, { mult: mult * (m.undead ? 1 + (FACTIONS[p.fac]?.vsUndead || 0) : 1), ignoreDef, critC });
@@ -1572,7 +1573,7 @@ function wbAttack(p, uid) {
   const cd = wbHitCd(p) - (Date.now() - p.lastWb);
   if (cd > 0) return { error: `⏳ Bạn cần nghỉ **${Math.ceil(cd / 1000)} giây** nữa mới tấn công tiếp.` };
   const s = stats(p), pk = perks(p), cls = CLASSES[p.cls];
-  const pet = p.pet && p.pets[p.pet] ? { ...PETS[p.pet], star: p.pets[p.pet].star, evo: p.pets[p.pet].evo || 0, boost: CLASSES[p.cls].petBoost || 1 } : null;
+  const pet = p.pet && p.pets[p.pet] ? { ...PETS[p.pet], star: p.pets[p.pet].star, evo: p.pets[p.pet].evo || 0, boost: (CLASSES[p.cls].petBoost || 1) * (1 + buffVal(p, 'thikhi')) } : null;
   let mp = s.maxMp, total = 0, skillUses = 0;
   for (let r = 0; r < 6; r++) {
     const skills = cls.skills.filter((sk) => p.level >= sk.lv && mp >= sk.cost);
@@ -1928,7 +1929,7 @@ Object.assign(ITEMS, {
   thienthach: { name: 'Thiên Thạch',      emoji: '☄️', type: 'material', sell: 1500, desc: 'Cường hóa từ +16 trở lên cần 1 viên mỗi lần' },
   thienbaoho: { name: 'Thiên Bảo Hộ Phù', emoji: '🔱', type: 'talisman', price: 30000, desc: 'Cường hóa +16→+20: chống tụt cấp & vỡ đồ' },
 });
-const BUFF_NAME = { exp: 'EXP', gold: 'vàng', drop: 'tỉ lệ rơi vật phẩm' };
+const BUFF_NAME = { exp: 'EXP', gold: 'vàng', drop: 'tỉ lệ rơi vật phẩm', thikhi: 'sức mạnh đệ tử (Thi Khí)', makhi: 'chí mạng (Ma Khí, kèm hút máu một nửa)' };
 function buffVal(p, k) { const b = p.buffs?.[k]; return b && b.until > Date.now() ? b.v : 0; }
 function openBox(p, kind) {
   const lines = [];
@@ -2337,6 +2338,12 @@ const CULT = {
     lines: ['Mai rùa nứt ra, quẻ tượng hiện rõ vận hạn sắp tới.', 'Bạn gieo ba đồng xu, thiên cơ khẽ lộ.'],
     mile: { text: 'Quẻ ứng nghiệm, vận may đến tận cửa!', give: [['thienvanphu', 2], ['ruongngoc', 1]] } },
 };
+// Trạng thái chiến đấu bật khi viên mãn thanh năng lượng (riêng cương thi và ma)
+const CULT_BUFF_MIN = 6;
+const CULT_BUFF = {
+  nguthi: { k: 'thikhi', v: 0.35, emoji: '🧟', name: 'Thi Khí Nhập Thể', text: 'đệ tử mạnh thêm **35%**' },
+  quydao: { k: 'makhi', v: 0.12, emoji: '👺', name: 'Ma Khí Cuồn Cuộn', text: '**+12% chí mạng** và **+6% hút máu**' },
+};
 function cultivate(p) {
   const c = CULT[p.cls], wait = meditateCd(p) - (Date.now() - p.lastMeditate);
   if (wait > 0) return { ok: false, msg: `🧘 Tâm chưa tĩnh. Hãy đợi **${Math.ceil(wait / 1000)} giây** nữa.` };
@@ -2386,6 +2393,11 @@ function cultivate(p) {
     let petTxt = '';
     if (c.mile.pet && p.pets?.[c.mile.pet] && p.pets[c.mile.pet].star < 5) { p.pets[c.mile.pet].star++; petTxt = `\n${PETS[c.mile.pet].emoji} **${PETS[c.mile.pet].name}** lên **${p.pets[c.mile.pet].star}⭐**!`; }
     lines.push(`🌟 **${c.meter[0]} viên mãn!** ${c.mile.text}\n🎁 ${given.join(' • ')}${petTxt}`);
+    const st = CULT_BUFF[p.cls];
+    if (st) {
+      p.buffs ??= {}; p.buffs[st.k] = { v: st.v, until: Date.now() + CULT_BUFF_MIN * 60000 };
+      lines.push(`${st.emoji} **${st.name}** bùng phát: ${st.text} trong **${CULT_BUFF_MIN} phút** (<t:${Math.floor(p.buffs[st.k].until / 1000)}:R>). Tu luyện liên tục để giữ trạng thái!`);
+    }
   }
   return { ok: true, c, lines, notes, out, expTxt, ups, hpGain, mpGain, risk: !!risk, mile: !!mile, speed };
 }
@@ -3229,4 +3241,4 @@ async function main() {
 }
 
 if (process.env.DAOSI_TEST !== '1') main();
-module.exports = { commands, ITEMS, RECIPES, GEAR, CLASSES, MAPS, newPlayer, stats, perks, beginFight, act, fightView, enhanceAttempt, enhView, shopView, simKiep, kiepView, gainExp, migrate, buy, fights, capOf, atBottleneck, expNeed, ENH_RATE, handlers, PETS, summonOnce, simulateDuel, gemView, gemStats, socketsOf, petScale, petView, ACH, checkAch, titleBonus, beginTower, towerMonster, wbSync, wbSpawn, wbAttack, settleWb, db, guildCreate, guildJoin, guildLeave, guildDonate, guildBonus, marketPost, marketBuy, marketCancel, marketSync, randomEvent, achView, wbView, marketView, profileEmbed, resultView, cultivate, cultEmbed, CULT, meditateCd, genQuest, questProg, questEmbed, claimQuest, QTYPES, CLASS_QUEST, REALM_REWARD, dailyN, enhMul, protId, luckBonus, ENH_MAX, ENH_HIGH, enhGold, enhStones, lightningChance, breakChance, doEnhance, openBox, buffVal, BUFF_NAME, skillMult, sklUp, sklView, sklCost, sklLv, SKL_MAX, handleAuto, handleButton, handleSelect, AFFIX, affReroll, affView, affSlots, extraTotals, GRADE_Q, GRADE_NEED, gradeAttempt, gradeView, TECHS, techUp, techView, techCost, PET_EVO, petEvolve, SHOP_DEFS, shopOffers, buyOffer, tiemView, BM_POOL, passiveText, gradeOf, FACTIONS, FAC_GEAR, VIP_SHOP, VIP_PERK, VIP_STEPS, vipLevel, vipBuy, vipShopView, vipEmbed, facView, leadingFaction, fpSync, expMul, goldMul, priceFor, backup, listBackups, saveNow, writeDb, DB_FILE, BACKUP_DIR, loadDb, isAdmin, CLASS_GEAR_MOD, GEM_KINDS };
+module.exports = { commands, ITEMS, RECIPES, GEAR, CLASSES, MAPS, newPlayer, stats, perks, beginFight, act, fightView, enhanceAttempt, enhView, shopView, simKiep, kiepView, gainExp, migrate, buy, fights, capOf, atBottleneck, expNeed, ENH_RATE, handlers, PETS, summonOnce, simulateDuel, gemView, gemStats, socketsOf, petScale, petView, ACH, checkAch, titleBonus, beginTower, towerMonster, wbSync, wbSpawn, wbAttack, settleWb, db, guildCreate, guildJoin, guildLeave, guildDonate, guildBonus, marketPost, marketBuy, marketCancel, marketSync, randomEvent, achView, wbView, marketView, profileEmbed, resultView, cultivate, cultEmbed, CULT, meditateCd, CULT_BUFF, CULT_BUFF_MIN, genQuest, questProg, questEmbed, claimQuest, QTYPES, CLASS_QUEST, REALM_REWARD, dailyN, enhMul, protId, luckBonus, ENH_MAX, ENH_HIGH, enhGold, enhStones, lightningChance, breakChance, doEnhance, openBox, buffVal, BUFF_NAME, skillMult, sklUp, sklView, sklCost, sklLv, SKL_MAX, handleAuto, handleButton, handleSelect, AFFIX, affReroll, affView, affSlots, extraTotals, GRADE_Q, GRADE_NEED, gradeAttempt, gradeView, TECHS, techUp, techView, techCost, PET_EVO, petEvolve, SHOP_DEFS, shopOffers, buyOffer, tiemView, BM_POOL, passiveText, gradeOf, FACTIONS, FAC_GEAR, VIP_SHOP, VIP_PERK, VIP_STEPS, vipLevel, vipBuy, vipShopView, vipEmbed, facView, leadingFaction, fpSync, expMul, goldMul, priceFor, backup, listBackups, saveNow, writeDb, DB_FILE, BACKUP_DIR, loadDb, isAdmin, CLASS_GEAR_MOD, GEM_KINDS };
