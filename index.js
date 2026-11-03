@@ -1,4 +1,4 @@
-// ☯️ ĐẠO SĨ BOT v4.7 – Bot RPG Discord lấy cảm hứng từ phim "Cương Thi Tiên Sinh"
+// ☯️ ĐẠO SĨ BOT v4.8 – Bot RPG Discord lấy cảm hứng từ phim "Cương Thi Tiên Sinh"
 // Nhân vật: 18 môn phái, 3 phe, VIP/Nguyên Bảo • Đồ: riêng từng phái, pháp bảo, bùa, lệnh bài phe
 // Nâng cấp: cường hóa +20 (sét đánh, cấp Thiên), luyện tuyệt kỹ, thăng phẩm, tinh luyện, khảm ngọc, công pháp, độ thiên kiếp, tiến hóa đệ tử
 // Hoạt động: săn 6 khu vực, Trấn Yêu Tháp, boss thế giới, võ đài PvP, tông môn, chợ, 16 cửa hàng, rương, bùa phúc, nhiệm vụ theo phái & cảnh giới, thành tựu
@@ -937,7 +937,7 @@ function act(p, f, action) {
   const pet = p.pet && p.pets?.[p.pet] ? { ...PETS[p.pet], star: p.pets[p.pet].star, evo: p.pets[p.pet].evo || 0, boost: (CLASSES[p.cls].petBoost || 1) * (1 + buffVal(p, 'thikhi')) } : null;
   const heal = (n) => { const b = p.hp; p.hp = Math.min(s.maxHp, p.hp + n); return p.hp - b; };
   const hit = (mult = 1, ignoreDef = false, ls = 0) => {
-    const r = calcDmg(s.atk, m.def, { mult: mult * (m.undead ? 1 + (FACTIONS[p.fac]?.vsUndead || 0) : 1), ignoreDef, critC });
+    const r = calcDmg(s.atk, m.def, { mult: mult * (m.undead ? 1 + (FACTIONS[p.fac]?.vsUndead || 0) + (buffVal(p, 'hoakhi') ? 0.15 : 0) : 1), ignoreDef, critC });
     f.mHp -= r.dmg; if (r.crit) questProg(p, 'crit');
     if (pk.lifesteal + ls > 0) heal(Math.round(r.dmg * (pk.lifesteal + ls)));
     return r;
@@ -974,7 +974,7 @@ function act(p, f, action) {
     if (sk.heal) questProg(p, 'heal');
     if (sk.heal) log.push(`💚 Hồi **${heal(Math.round(s.maxHp * sk.heal))}** HP`);
     if (sk.stun && Math.random() < sk.stun) { stunMonster(1); log.push(`💫 ${m.name} choáng váng!`); }
-    if (sk.burn) { questProg(p, 'burn'); f.burn = { d: Math.max(1, Math.round(s.atk * sk.burn.atkPct)), t: sk.burn.t }; log.push(`🔥 ${m.name} bốc cháy!`); }
+    if (sk.burn) { questProg(p, 'burn'); f.burn = { d: Math.max(1, Math.round(s.atk * sk.burn.atkPct * (1 + burnBonus(p)))), t: sk.burn.t + burnExtraTurns(p) }; log.push(`🔥 ${m.name} bốc cháy!`); }
     if (sk.shield) { f.shield = { ...sk.shield }; log.push(`🛡️ Kim quang hộ thể, giảm ${pct(sk.shield.pct)} sát thương!`); }
     if (sk.curse) { f.curse = { ...sk.curse }; log.push(`☠️ ${m.name} bị nguyền rủa, yếu đi ${pct(sk.curse.pct)} sức mạnh!`); }
   } else if (action === 'run') {
@@ -992,7 +992,7 @@ function act(p, f, action) {
     if (u.mana) { const b = p.mp; p.mp = Math.min(s.maxMp, p.mp + u.mana); log.push(`🔷 Hồi **${p.mp - b}** linh lực`); }
     if (u.stun) { stunMonster(u.stun); log.push(`📜 ${m.name} bị định thân!`); }
     if (u.shield) { f.shield = { ...u.shield }; log.push(`🛡️ Giảm ${pct(u.shield.pct)} sát thương trong ${u.shield.t} lượt`); }
-    if (u.burn) { questProg(p, 'burn'); f.burn = { d: Math.max(1, Math.round(s.atk * u.burn.atkPct)), t: u.burn.t }; log.push(`🔥 ${m.name} bốc cháy!`); }
+    if (u.burn) { questProg(p, 'burn'); f.burn = { d: Math.max(1, Math.round(s.atk * u.burn.atkPct * (1 + burnBonus(p)))), t: u.burn.t + burnExtraTurns(p) }; log.push(`🔥 ${m.name} bốc cháy!`); }
     if (u.dmg || u.dmgAtk) {
       let d = u.dmgAtk ? Math.round(s.atk * u.dmgAtk) : u.dmg + (u.perLevel || 0) * p.level;
       if (u.undeadOnly && !m.undead) d = u.fallback;
@@ -1385,7 +1385,7 @@ function simulateDuel(pa, pb) {
     if (sk?.heal) X.hp = Math.min(X.s.maxHp, X.hp + Math.round(X.s.maxHp * sk.heal));
     if ((sk?.stun && Math.random() < sk.stun) || (!sk && X.pk.stun && Math.random() < X.pk.stun)) { if (!Y.imm) { Y.stun = 1; log.push(`💫 **${Y.name}** bị choáng!`); } }
     if (sk?.curse) Y.curse = { ...sk.curse };
-    if (sk?.burn) Y.burn = { d: Math.max(1, Math.round(X.s.atk * sk.burn.atkPct * PVP_DMG)), t: sk.burn.t };
+    if (sk?.burn) Y.burn = { d: Math.max(1, Math.round(X.s.atk * sk.burn.atkPct * PVP_DMG * (1 + burnBonus(X.p)))), t: sk.burn.t + burnExtraTurns(X.p) };
     if (sk?.shield) { X.shield = { ...sk.shield }; log.push(`🛡️ **${X.name}** dựng kim quang hộ thể!`); }
     if (Y.pk.thorns) X.hp -= Math.round(total * Y.pk.thorns);
     if (X.shield?.t > 0) X.shield.t--;
@@ -1929,7 +1929,7 @@ Object.assign(ITEMS, {
   thienthach: { name: 'Thiên Thạch',      emoji: '☄️', type: 'material', sell: 1500, desc: 'Cường hóa từ +16 trở lên cần 1 viên mỗi lần' },
   thienbaoho: { name: 'Thiên Bảo Hộ Phù', emoji: '🔱', type: 'talisman', price: 30000, desc: 'Cường hóa +16→+20: chống tụt cấp & vỡ đồ' },
 });
-const BUFF_NAME = { exp: 'EXP', gold: 'vàng', drop: 'tỉ lệ rơi vật phẩm', thikhi: 'sức mạnh đệ tử (Thi Khí)', makhi: 'chí mạng (Ma Khí, kèm hút máu một nửa)' };
+const BUFF_NAME = { exp: 'EXP', gold: 'vàng', drop: 'tỉ lệ rơi vật phẩm', thikhi: 'sức mạnh đệ tử (Thi Khí)', makhi: 'chí mạng (Ma Khí, kèm hút máu một nửa)', cokhi: 'sát thương độc/thiêu đốt (Cổ Khí)', hoakhi: 'sát thương thiêu đốt (Hỏa Khí, cháy +1 lượt, +15% đánh ma quỷ)' };
 function buffVal(p, k) { const b = p.buffs?.[k]; return b && b.until > Date.now() ? b.v : 0; }
 function openBox(p, kind) {
   const lines = [];
@@ -2343,7 +2343,11 @@ const CULT_BUFF_MIN = 6;
 const CULT_BUFF = {
   nguthi: { k: 'thikhi', v: 0.35, emoji: '🧟', name: 'Thi Khí Nhập Thể', text: 'đệ tử mạnh thêm **35%**' },
   quydao: { k: 'makhi', v: 0.12, emoji: '👺', name: 'Ma Khí Cuồn Cuộn', text: '**+12% chí mạng** và **+6% hút máu**' },
+  cosu: { k: 'cokhi', v: 0.35, emoji: '🐛', name: 'Cổ Khí Lan Tràn', text: 'độc / thiêu đốt mạnh thêm **35%**' },
+  minhgiao: { k: 'hoakhi', v: 0.25, emoji: '🔥', name: 'Thánh Hỏa Bùng Cháy', text: 'thiêu đốt mạnh thêm **25%**, cháy lâu thêm **1 lượt**, đánh ma quỷ mạnh thêm **15%**' },
 };
+const burnBonus = (p) => buffVal(p, 'cokhi') + buffVal(p, 'hoakhi');  // cộng thêm vào sát thương thiêu đốt
+const burnExtraTurns = (p) => (buffVal(p, 'hoakhi') ? 1 : 0);          // Hỏa Khí: cháy lâu hơn 1 lượt
 function cultivate(p) {
   const c = CULT[p.cls], wait = meditateCd(p) - (Date.now() - p.lastMeditate);
   if (wait > 0) return { ok: false, msg: `🧘 Tâm chưa tĩnh. Hãy đợi **${Math.ceil(wait / 1000)} giây** nữa.` };
@@ -3182,7 +3186,7 @@ async function handleSelect(i) {
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 client.once(Events.ClientReady, async (c) => {
-  console.log(`☯️ Đạo Sĩ Bot v3 đã sẵn sàng: ${c.user.tag}`);
+  console.log(`☯️ Đạo Sĩ Bot v4.8 đã sẵn sàng: ${c.user.tag}`);
   const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
   try {
     const route = process.env.GUILD_ID
@@ -3209,13 +3213,14 @@ client.on(Events.InteractionCreate, async (i) => {
       try { await i.followUp({ content: `🏅 **Thành tựu mới!**\n${got.join('\n')}\nDùng \`/thanhtuu\` để đeo danh hiệu.`, flags: EPH }); } catch { /* bỏ qua */ }
     }
   } catch (e) {
+    if (e?.code === 10062 || e?.code === 40060) { console.warn(`⚠️ Bỏ qua: tương tác đã hết hạn hoặc đã được phản hồi (mã ${e.code}). Nếu gặp liên tục, hãy chắc chắn chỉ chạy MỘT bản bot với token này.`); return; }
     console.error(e);
     const msg = { content: '⚠️ Có lỗi xảy ra, thử lại sau nhé!', flags: EPH };
     try { (i.deferred || i.replied) ? await i.followUp(msg) : await i.reply(msg); } catch { /* bỏ qua */ }
   }
 });
 
-process.on('unhandledRejection', (e) => console.error('⚠️ Lỗi chưa xử lý:', e));
+process.on('unhandledRejection', (e) => { if (e?.code === 10062 || e?.code === 40060) return console.warn(`⚠️ Bỏ qua: tương tác đã hết hạn hoặc đã được phản hồi (mã ${e.code})`); console.error('⚠️ Lỗi chưa xử lý:', e); });
 client.on(Events.Error, (e) => console.error('⚠️ Lỗi client:', e));
 
 async function main() {
@@ -3241,4 +3246,4 @@ async function main() {
 }
 
 if (process.env.DAOSI_TEST !== '1') main();
-module.exports = { commands, ITEMS, RECIPES, GEAR, CLASSES, MAPS, newPlayer, stats, perks, beginFight, act, fightView, enhanceAttempt, enhView, shopView, simKiep, kiepView, gainExp, migrate, buy, fights, capOf, atBottleneck, expNeed, ENH_RATE, handlers, PETS, summonOnce, simulateDuel, gemView, gemStats, socketsOf, petScale, petView, ACH, checkAch, titleBonus, beginTower, towerMonster, wbSync, wbSpawn, wbAttack, settleWb, db, guildCreate, guildJoin, guildLeave, guildDonate, guildBonus, marketPost, marketBuy, marketCancel, marketSync, randomEvent, achView, wbView, marketView, profileEmbed, resultView, cultivate, cultEmbed, CULT, meditateCd, CULT_BUFF, CULT_BUFF_MIN, genQuest, questProg, questEmbed, claimQuest, QTYPES, CLASS_QUEST, REALM_REWARD, dailyN, enhMul, protId, luckBonus, ENH_MAX, ENH_HIGH, enhGold, enhStones, lightningChance, breakChance, doEnhance, openBox, buffVal, BUFF_NAME, skillMult, sklUp, sklView, sklCost, sklLv, SKL_MAX, handleAuto, handleButton, handleSelect, AFFIX, affReroll, affView, affSlots, extraTotals, GRADE_Q, GRADE_NEED, gradeAttempt, gradeView, TECHS, techUp, techView, techCost, PET_EVO, petEvolve, SHOP_DEFS, shopOffers, buyOffer, tiemView, BM_POOL, passiveText, gradeOf, FACTIONS, FAC_GEAR, VIP_SHOP, VIP_PERK, VIP_STEPS, vipLevel, vipBuy, vipShopView, vipEmbed, facView, leadingFaction, fpSync, expMul, goldMul, priceFor, backup, listBackups, saveNow, writeDb, DB_FILE, BACKUP_DIR, loadDb, isAdmin, CLASS_GEAR_MOD, GEM_KINDS };
+module.exports = { commands, ITEMS, RECIPES, GEAR, CLASSES, MAPS, newPlayer, stats, perks, beginFight, act, fightView, enhanceAttempt, enhView, shopView, simKiep, kiepView, gainExp, migrate, buy, fights, capOf, atBottleneck, expNeed, ENH_RATE, handlers, PETS, summonOnce, simulateDuel, gemView, gemStats, socketsOf, petScale, petView, ACH, checkAch, titleBonus, beginTower, towerMonster, wbSync, wbSpawn, wbAttack, settleWb, db, guildCreate, guildJoin, guildLeave, guildDonate, guildBonus, marketPost, marketBuy, marketCancel, marketSync, randomEvent, achView, wbView, marketView, profileEmbed, resultView, cultivate, cultEmbed, CULT, meditateCd, CULT_BUFF, CULT_BUFF_MIN, burnBonus, burnExtraTurns, genQuest, questProg, questEmbed, claimQuest, QTYPES, CLASS_QUEST, REALM_REWARD, dailyN, enhMul, protId, luckBonus, ENH_MAX, ENH_HIGH, enhGold, enhStones, lightningChance, breakChance, doEnhance, openBox, buffVal, BUFF_NAME, skillMult, sklUp, sklView, sklCost, sklLv, SKL_MAX, handleAuto, handleButton, handleSelect, AFFIX, affReroll, affView, affSlots, extraTotals, GRADE_Q, GRADE_NEED, gradeAttempt, gradeView, TECHS, techUp, techView, techCost, PET_EVO, petEvolve, SHOP_DEFS, shopOffers, buyOffer, tiemView, BM_POOL, passiveText, gradeOf, FACTIONS, FAC_GEAR, VIP_SHOP, VIP_PERK, VIP_STEPS, vipLevel, vipBuy, vipShopView, vipEmbed, facView, leadingFaction, fpSync, expMul, goldMul, priceFor, backup, listBackups, saveNow, writeDb, DB_FILE, BACKUP_DIR, loadDb, isAdmin, CLASS_GEAR_MOD, GEM_KINDS };
