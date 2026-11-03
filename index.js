@@ -1,4 +1,4 @@
-// ☯️ ĐẠO SĨ BOT v4.5 – Bot RPG Discord lấy cảm hứng từ phim "Cương Thi Tiên Sinh"
+// ☯️ ĐẠO SĨ BOT v4.6 – Bot RPG Discord lấy cảm hứng từ phim "Cương Thi Tiên Sinh"
 // Nhân vật: 18 môn phái, 3 phe, VIP/Nguyên Bảo • Đồ: riêng từng phái, pháp bảo, bùa, lệnh bài phe
 // Nâng cấp: cường hóa +20 (sét đánh, cấp Thiên), luyện tuyệt kỹ, thăng phẩm, tinh luyện, khảm ngọc, công pháp, độ thiên kiếp, tiến hóa đệ tử
 // Hoạt động: săn 6 khu vực, Trấn Yêu Tháp, boss thế giới, võ đài PvP, tông môn, chợ, 16 cửa hàng, rương, bùa phúc, nhiệm vụ theo phái & cảnh giới, thành tựu
@@ -559,13 +559,13 @@ function leadingFaction() {
 const VIP_STEPS = [0, 100, 500, 1500, 5000, 15000]; // điểm VIP cộng dồn (chỉ tính khi admin nạp Nguyên Bảo)
 const VIP_PERK = {
   exp: [0, 0.05, 0.1, 0.15, 0.2, 0.3], gold: [0, 0.05, 0.1, 0.15, 0.2, 0.3], disc: [0, 0, 0.05, 0.08, 0.1, 0.15],
-  stat: [0, 0, 0.01, 0.02, 0.03, 0.05], slots: [0, 2, 4, 6, 8, 10], med: [10, 10, 8, 6, 5, 3], wb: [180, 180, 150, 120, 90, 60],
+  stat: [0, 0, 0.01, 0.02, 0.03, 0.05], slots: [0, 2, 4, 6, 8, 10], med: [30, 30, 25, 20, 15, 10], wb: [180, 180, 150, 120, 90, 60],
 };
 const vipLevel = (p) => { let l = 0; for (let i = 1; i < VIP_STEPS.length; i++) if ((p.vipPts || 0) >= VIP_STEPS[i]) l = i; return l; };
 const expMul = (p) => 1 + (FACTIONS[p.fac]?.exp || 0) + (CLASSES[p.cls]?.expBonus || 0) + VIP_PERK.exp[vipLevel(p)] + buffVal(p, 'exp');
 const goldMul = (p) => 1 + (FACTIONS[p.fac]?.gold || 0) + (CLASSES[p.cls]?.goldBonus || 0) + VIP_PERK.gold[vipLevel(p)] + buffVal(p, 'gold');
 const priceFor = (p, it) => Math.max(1, Math.round(it.price * (1 - VIP_PERK.disc[vipLevel(p)])));
-const meditateCd = (p) => VIP_PERK.med[vipLevel(p)] * 60000;
+const meditateCd = (p) => VIP_PERK.med[vipLevel(p)] * 1000;
 const wbHitCd = (p) => VIP_PERK.wb[vipLevel(p)] * 1000;
 
 const titleBonus = (p) => (p.title && p.ach?.[p.title] ? ACH.find((a) => a.id === p.title)?.title || {} : {});
@@ -704,7 +704,7 @@ function migrate(p) {
     const o = p.quest;
     p.quest = { type: 'kill', need: o.need, done: o.done, realm: Math.min(p.realm || 0, 5), cls: p.cls, giver: 'Cửu Thúc', text: `Diệt ${o.need} yêu ma`, t: Date.now(), reward: { gold: o.gold || 300, exp: o.exp || 100, items: [], nb: 0 } };
   }
-  p.inv ??= {}; p.equip ??= {}; p.buffs ??= {}; p.skl ??= {}; p.equip.badge ??= null; p.fac ??= null; p.facAt ??= 0; p.nb ??= 0; p.vipPts ??= 0; p.lastVip ??= 0; p.vd ??= 0; p.tl ??= 0; p.gp ??= 0; p.aff ??= {}; p.grade ??= {}; p.tech ??= {}; p.shopLog ??= { day: 0, counts: {} };
+  p.inv ??= {}; p.equip ??= {}; p.buffs ??= {}; p.skl ??= {}; p.cult ??= { m: 0, n: 0 }; p.equip.badge ??= null; p.fac ??= null; p.facAt ??= 0; p.nb ??= 0; p.vipPts ??= 0; p.lastVip ??= 0; p.vd ??= 0; p.tl ??= 0; p.gp ??= 0; p.aff ??= {}; p.grade ??= {}; p.tech ??= {}; p.shopLog ??= { day: 0, counts: {} };
   p.enh ??= {}; p.lastKiep ??= 0; p.kiepDone ??= 0; p.gems ??= {}; p.pets ??= {}; p.pet ??= null; p.honor ??= 0; p.pity ??= 0; p.lastDuel ??= 0; p.title ??= null; p.ach ??= {}; p.guild ??= null; p.contrib ??= 0; p.towerBest ??= 0; p.duelWins ??= 0; p.wbHits ??= 0; p.wbKills ??= 0; p.lastWb ??= 0;
   p.realm ??= Math.min(5, Math.floor(p.level / 10));
   p.equip.treasure ??= null; p.equip.charm ??= null;
@@ -806,7 +806,7 @@ function newPlayer(cls, name) {
     inv: { linhdan: 3, phutranthi: 2, gaoep: 2 },
     equip: { weapon: null, armor: null, treasure: null, charm: null, badge: null, accessory: null },
     enh: {}, buffs: {}, skl: {}, fac: null, facAt: 0, nb: 0, vipPts: 0, lastVip: 0, vd: 0, tl: 0, gp: 0, aff: {}, grade: {}, tech: {}, shopLog: { day: 0, counts: {} }, gems: {}, pets: {}, pet: null, honor: 0, pity: 0, lastDuel: 0, title: null, ach: {}, guild: null, contrib: 0, towerBest: 0, duelWins: 0, wbHits: 0, wbKills: 0, lastWb: 0, hp: 0, mp: 0, kills: 0, deaths: 0, bossKills: 0, kiepDone: 0,
-    streak: 0, lastDaily: 0, lastMeditate: 0, lastKiep: 0, quest: null,
+    streak: 0, lastDaily: 0, lastMeditate: 0, lastKiep: 0, quest: null, cult: { m: 0, n: 0 },
   };
   if (cls === 'nguthi') { p.pets.tieucuongthi = { star: 1 }; p.pet = 'tieucuongthi'; }
   const s = stats(p); p.hp = s.maxHp; p.mp = s.maxMp;
@@ -839,7 +839,7 @@ function beginFight(uid, p, mapId) {
   const map = MAPS[mapId];
   if (p.level < map.lv) return { error: `⛔ Khu vực **${map.name}** yêu cầu cấp **${map.lv}** trở lên!` };
   const s = stats(p);
-  if (p.hp < s.maxHp * 0.15) return { error: '🩸 Bạn quá yếu! Hãy dùng đan dược hoặc `/toathien` để hồi sức trước.' };
+  if (p.hp < s.maxHp * 0.15) return { error: '🩸 Bạn quá yếu! Hãy dùng đan dược hoặc `/tuluyen` để hồi sức trước.' };
   const boss = Math.random() < 0.1;
   const m = { ...(boss ? map.boss : pick(map.mobs)) };
   const f = { map: mapId, m, mHp: m.hp, boss, stun: 0, burn: null, shield: null, turn: 1, t: Date.now(), over: null,
@@ -1509,7 +1509,7 @@ function towerMonster(floor) {
 }
 function beginTower(uid, p) {
   const s = stats(p);
-  if (p.hp < s.maxHp * 0.15) return { error: '🩸 Bạn quá yếu! Hãy dùng đan dược hoặc `/toathien` để hồi sức trước.' };
+  if (p.hp < s.maxHp * 0.15) return { error: '🩸 Bạn quá yếu! Hãy dùng đan dược hoặc `/tuluyen` để hồi sức trước.' };
   const floor = p.towerBest + 1, m = towerMonster(floor);
   const f = { map: 'thap', tower: true, floor, m, mHp: m.hp, boss: m.floorBoss, stun: 0, burn: null, shield: null, turn: 1, t: Date.now(), over: null,
     log: [`🗼 **Tầng ${floor}** – ${m.floorBoss ? '👑 **TẦNG BOSS!** ' : ''}${m.emoji} **${m.name}** xuất hiện!`] };
@@ -1759,7 +1759,7 @@ function vipShopView(p, uid) {
 }
 function vipEmbed(p) {
   const lv = vipLevel(p), next = VIP_STEPS[lv + 1];
-  const perkLine = (l) => `**VIP ${l}** (${fmt(VIP_STEPS[l])} điểm): EXP/vàng +${pct(VIP_PERK.exp[l])} • giảm giá shop ${pct(VIP_PERK.disc[l])} • chỉ số +${pct(VIP_PERK.stat[l])} • +${VIP_PERK.slots[l]} ô chợ • tọa thiền ${VIP_PERK.med[l]}p • đánh boss ${VIP_PERK.wb[l]}s`;
+  const perkLine = (l) => `**VIP ${l}** (${fmt(VIP_STEPS[l])} điểm): EXP/vàng +${pct(VIP_PERK.exp[l])} • giảm giá shop ${pct(VIP_PERK.disc[l])} • chỉ số +${pct(VIP_PERK.stat[l])} • +${VIP_PERK.slots[l]} ô chợ • tu luyện ${VIP_PERK.med[l]}s • đánh boss ${VIP_PERK.wb[l]}s`;
   return embed(0xf1c40f).setTitle(`👑 VIP của ${p.name}`)
     .setDescription([
       `Cấp hiện tại: **VIP ${lv}** • Điểm VIP: **${fmt(p.vipPts)}**${next ? ` (còn ${fmt(next - p.vipPts)} để lên VIP ${lv + 1})` : ' ⭐ tối đa'}`,
@@ -2274,6 +2274,128 @@ function claimQuest(p) {
   return lines;
 }
 
+/* ═══════════════════════════ TU LUYỆN (MỘT LỆNH DUY NHẤT: /tuluyen) ═══════════════════════════ */
+// Hồi chiêu 30 giây (VIP rút ngắn). Tốc độ mỗi phái một mức khác nhau (0.80 → 1.55). Mỗi phái có công pháp riêng: tốc độ (speed), hồi máu/linh lực (hp/mp),
+// thanh năng lượng riêng (meter: [tên, tăng mỗi lần]) đầy 100 thì nhận mốc thưởng, vật phẩm rơi (drop) và rủi ro (risk).
+// drop: [tỉ lệ, [[id, min, max], ...]] – id '__gold' là vàng.
+const CULT = {
+  maoson:     { tech: 'Tọa Thiền Chính Khí', emoji: '☯️', speed: 1.04, hp: 0.20, mp: 0.25, meter: ['Chính Khí', 7], drop: [0.25, [['phutranthi', 1, 2]]],
+    lines: ['Bạn ngồi thiền dưới gốc đào, chính khí lưu chuyển khắp kinh mạch.', 'Cửu Thúc dạy: tâm tĩnh thì phù mới linh.'],
+    mile: { text: 'Chính khí đại thành, đạo tâm sáng như gương!', give: [['dailinhdan', 2], ['linhthach', 3]] } },
+  phuchu:     { tech: 'Luyện Phù Tĩnh Tâm', emoji: '📜', speed: 1.2, hp: 0.10, mp: 0.45, meter: ['Phù Lực', 8], drop: [0.4, [['giayvang', 1, 3], ['chusa', 1, 2]]],
+    lines: ['Bạn vẽ phù trong tĩnh lặng, từng nét chu sa tụ linh khí.', 'Giấy vàng bay lượn quanh người, phù lực dồi dào.'],
+    mile: { text: 'Phù lực tràn đầy, nét bút như rồng bay phượng múa!', give: [['phuloi', 3], ['phuthienloi', 1]] } },
+  vodao:      { tech: 'Luyện Thể Công', emoji: '🥋', speed: 0.96, hp: 0.40, mp: 0.10, meter: ['Khí Huyết', 7], drop: [0.25, [['linhdan', 1, 3]]],
+    lines: ['Bạn đứng tấn ngàn lần, cơ bắp rắn như thép nguội.', 'Mồ hôi đổ như mưa, khí huyết sôi trào.'],
+    mile: { text: 'Kim thân đại thành, khí huyết cuồn cuộn!', give: [['dailinhdan', 2], ['tuvi1', 1]] } },
+  thieulam:   { tech: 'Thiền Định Phật Quang', emoji: '🧘', speed: 1.4, hp: 0.30, mp: 0.20, meter: ['Phật Quang', 6], drop: [0.25, [['gaoep', 2, 4], ['linhdan', 1, 2]]],
+    lines: ['Tiếng mõ vang đều, tâm bạn lắng như mặt hồ.', 'A Di Đà Phật, phật quang chiếu rọi.'],
+    mile: { text: 'Phật quang phổ chiếu, giác ngộ một tầng!', give: [['tuvi1', 2], ['phuhothan', 2]] } },
+  thucson:    { tech: 'Ngự Kiếm Tọa Công', emoji: '🗡️', speed: 0.88, hp: 0.15, mp: 0.35, meter: ['Kiếm Ý', 9], drop: [0.2, [['linhthach', 1, 2]]],
+    lines: ['Phi kiếm lượn vòng quanh người, kiếm ý ngưng tụ.', 'Bạn lắng nghe tiếng kiếm minh trong gió.'],
+    mile: { text: 'Kiếm ý thông thiên, kiếm tâm trong suốt!', give: [['linhthach', 5], ['hong2', 1]] } },
+  nguthi:     { tech: 'Luyện Thi Dưỡng Khí', emoji: '🧟', speed: 0.8, hp: 0.15, mp: 0.30, meter: ['Thi Khí', 10], drop: [0.6, [['xuongthi', 1, 3], ['xuongthi', 2, 4], ['nanhholy', 1, 1]]],
+    lines: ['Bạn ngồi giữa nghĩa địa, thi khí âm lạnh thấm vào kinh mạch.', 'Cương thi nằm im bên cạnh, hít thở theo nhịp của bạn.', 'Trăng tròn, thi khí cuộn lên như sương mù quanh người.'],
+    risk: { name: 'Cương Thi Nổi Loạn', chance: 0.06, hpLoss: 0.08, expMul: 1, extra: [['xuongthi', 3, 5]], text: 'Cương thi bất ngờ nổi loạn tấn công chủ nhân, nhưng bạn khống chế được và thu về xương cốt!' },
+    mile: { text: 'Thi khí ngưng tụ, cương thi thức tỉnh!', give: [['xuongthi', 6], ['loithach', 2]], pet: 'tieucuongthi' } },
+  quydao:     { tech: 'Tu Ma Hút Khí', emoji: '👺', speed: 1.55, hp: 0.08, mp: 0.45, meter: ['Ma Khí', 10], drop: [0.4, [['maucho', 1, 2], ['huyetngoc', 0, 1]]],
+    lines: ['Bạn hút ma khí từ hư không, đôi mắt đỏ rực lên.', 'Âm hồn gào thét quanh người, ma công tăng tiến vùn vụt.', 'Máu trong người sôi sục, ma lực dâng trào.'],
+    risk: { name: 'Tẩu Hỏa Nhập Ma', chance: 0.08, hpLoss: 0.12, expMul: 2, extra: [['huyetngoc', 1, 1]], text: 'Ma khí phản phệ! Bạn thổ huyết nhưng cũng đột phá nhanh gấp đôi, kết tinh được Huyết Ngọc!' },
+    mile: { text: 'Ma công đại thành, ma khí cuồn cuộn che kín trời!', give: [['huyetngoc', 2], ['maucho', 4]] } },
+  caibang:    { tech: 'Luyện Công Ăn Xin', emoji: '🍶', speed: 0.92, hp: 0.30, mp: 0.15, meter: ['Hào Khí', 7], drop: [0.5, [['__gold', 50, 200]]],
+    lines: ['Bạn vừa nhai bánh bao vừa vận công, phong thái ung dung.', 'Một bầu rượu, một thế gậy, đạo ở ngay trong chén.'],
+    mile: { text: 'Hào khí ngút trời, anh em Cái Bang tới chung vui!', give: [['__gold', 3000], ['dailinhdan', 2]] } },
+  duocvuong:  { tech: 'Luyện Đan Dưỡng Sinh', emoji: '🧪', speed: 1.28, hp: 0.35, mp: 0.25, meter: ['Dược Khí', 7], drop: [0.35, [['linhdan', 2, 4], ['tudan', 1, 2]]],
+    lines: ['Hương thảo dược lan tỏa, bạn điều hòa khí huyết bằng đan hỏa.', 'Lò đan nhỏ lửa, từng viên linh đan thành hình.'],
+    mile: { text: 'Đan thành chín chuyển, dược lực thấm khắp châu thân!', give: [['dailinhdan', 3], ['hoilinhdan', 1]] } },
+  duongmon:   { tech: 'Luyện Nhãn Lực', emoji: '🎯', speed: 1.0, hp: 0.12, mp: 0.30, meter: ['Sát Khí', 8], drop: [0.3, [['phuloi', 1, 1], ['linhthach', 1, 1]]],
+    lines: ['Bạn phóng phi tiêu trúng điểm nhỏ nhất, ngàn lần như một.', 'Ám khí lướt trong bóng tối không một tiếng động.'],
+    mile: { text: 'Ám khí vô thanh, nhãn lực đạt tới cảnh giới thượng thừa!', give: [['phuloi', 3], ['hoang2', 1]] } },
+  phongthuy:  { tech: 'Xem Thiên Cơ', emoji: '🧭', speed: 1.32, hp: 0.15, mp: 0.35, meter: ['Thiên Cơ', 8], drop: [0.4, [['loithach', 1, 1], ['linhthach', 1, 2]]],
+    lines: ['La bàn xoay tít, long mạch hiện ra trong tâm trí bạn.', 'Bạn đọc quẻ giữa đêm sao, thiên cơ dần sáng tỏ.'],
+    mile: { text: 'Thiên cơ rõ như lòng bàn tay, long mạch quy tụ!', give: [['loithach', 3], ['thienvanphu', 1]] } },
+  cosu:       { tech: 'Nuôi Cổ Luyện Độc', emoji: '🐛', speed: 1.16, hp: 0.15, mp: 0.30, meter: ['Cổ Khí', 9], drop: [0.45, [['nanhholy', 1, 2], ['maucho', 1, 1]]],
+    lines: ['Cổ trùng bò rì rào trong bình, bạn nuôi dưỡng chúng bằng chân khí.', 'Độc khí quẩn quanh, cổ vương khẽ động.'],
+    risk: { name: 'Cổ Phản Phệ', chance: 0.06, hpLoss: 0.1, expMul: 1, extra: [['nanhholy', 2, 3]], text: 'Cổ trùng phản phệ cắn chủ, bạn kịp thu phục và lấy được nanh độc!' },
+    mile: { text: 'Cổ vương thành hình, vạn cổ quy phục!', give: [['nanhholy', 6], ['huyetngoc', 1]] } },
+  vodang:     { tech: 'Tọa Vong Thái Cực', emoji: '🌀', speed: 1.24, hp: 0.30, mp: 0.20, meter: ['Thái Cực Khí', 7], drop: [0.25, [['phuhothan', 1, 1], ['linhdan', 1, 2]]],
+    lines: ['Bạn múa từng thế quyền chậm rãi, âm dương luân chuyển.', 'Nhu thắng cương, khí lưu chuyển như dòng nước.'],
+    mile: { text: 'Thái cực viên mãn, âm dương hòa hợp!', give: [['phuhothan', 3], ['tuvi1', 1]] } },
+  ngami:      { tech: 'Thanh Tâm Cứu Thế', emoji: '🌸', speed: 1.17, hp: 0.30, mp: 0.30, meter: ['Từ Bi Khí', 7], drop: [0.35, [['linhdan', 2, 3], ['tudan', 1, 2]]],
+    lines: ['Hoa sen nở dưới chân, bạn tụng kinh trong tiếng chuông xa.', 'Lòng từ bi tràn đầy, kinh mạch ấm áp.'],
+    mile: { text: 'Từ bi viên mãn, hoa sen nở rộ khắp người!', give: [['dailinhdan', 2], ['tuvi2', 1]] } },
+  hoason:     { tech: 'Luyện Kiếm Đài Cao', emoji: '🏔️', speed: 0.84, hp: 0.12, mp: 0.30, meter: ['Kiếm Khí', 9], drop: [0.25, [['linhthach', 1, 2]]],
+    lines: ['Đỉnh Hoa Sơn gió lộng, bạn luyện kiếm giữa mây trời.', 'Mỗi nhát kiếm nhanh hơn tiếng gió.'],
+    mile: { text: 'Kiếm khí tung hoành, một kiếm phá vạn pháp!', give: [['linhthach', 5], ['hoang2', 1]] } },
+  minhgiao:   { tech: 'Tu Thánh Hỏa Công', emoji: '🔥', speed: 1.36, hp: 0.20, mp: 0.30, meter: ['Hỏa Khí', 8], drop: [0.35, [['phuliethoa', 1, 2], ['maucho', 0, 1]]],
+    lines: ['Thánh hỏa bập bùng trước mặt, bạn hít thở theo ngọn lửa.', 'Hỏa khí chảy rần rần trong huyết mạch.'],
+    mile: { text: 'Thánh hỏa đại thành, ngọn lửa thiêu rụi vạn tà!', give: [['phuliethoa', 3], ['loithach', 2]] } },
+  conlon:     { tech: 'Tọa Hàn Băng Quan', emoji: '❄️', speed: 1.08, hp: 0.25, mp: 0.30, meter: ['Hàn Khí', 8], drop: [0.3, [['phutranthi', 1, 2], ['linhthach', 1, 1]]],
+    lines: ['Bạn ngồi giữa băng tuyết, hàn khí thấm vào tận xương.', 'Tuyết rơi lặng lẽ, tâm bạn đóng băng yên tĩnh.'],
+    mile: { text: 'Hàn băng đại thành, vạn dặm đóng băng!', give: [['phutranthi', 4], ['luc2', 1]] } },
+  thiencogac: { tech: 'Bốc Quẻ Đoán Mệnh', emoji: '🔮', speed: 1.12, hp: 0.15, mp: 0.35, meter: ['Vận Khí', 8], drop: [0.5, [['__gold', 80, 300], ['linhthach', 1, 2]]],
+    lines: ['Mai rùa nứt ra, quẻ tượng hiện rõ vận hạn sắp tới.', 'Bạn gieo ba đồng xu, thiên cơ khẽ lộ.'],
+    mile: { text: 'Quẻ ứng nghiệm, vận may đến tận cửa!', give: [['thienvanphu', 2], ['ruongngoc', 1]] } },
+};
+function cultivate(p) {
+  const c = CULT[p.cls], wait = meditateCd(p) - (Date.now() - p.lastMeditate);
+  if (wait > 0) return { ok: false, msg: `🧘 Tâm chưa tĩnh. Hãy đợi **${Math.ceil(wait / 1000)} giây** nữa.` };
+  p.cult ??= { m: 0, n: 0 };
+  const s = stats(p), fac = FACTIONS[p.fac] ? p.fac : null, out = [], notes = [];
+  p.lastMeditate = Date.now();
+  // tốc độ tu luyện
+  let speed = c.speed;
+  if (p.cls === 'nguthi' && p.pet === 'tieucuongthi') { speed += 0.2; notes.push('🧟 Tiểu Cương Thi cùng bạn nhập định (+20% tốc độ)'); }
+  if (p.cls === 'quydao' && fac === 'ma') { speed += 0.15; notes.push('🌑 Ma Đạo cộng hưởng với ma khí (+15% tốc độ)'); }
+  if (fac === 'ma') speed *= 1.1;
+  let exp = Math.round((4 + p.level * 1.0) * speed * (0.85 + Math.random() * 0.3) * expMul(p));
+  // rủi ro riêng của phái cương thi / ma / cổ
+  let risk = null;
+  if (c.risk && Math.random() < c.risk.chance + (fac === 'ma' ? 0.04 : 0)) { risk = c.risk; exp = Math.round(exp * risk.expMul); }
+  // hồi phục
+  const hpGain = Math.round(s.maxHp * (c.hp + (fac === 'chinh' ? 0.1 : 0))), mpGain = Math.round(s.maxMp * c.mp);
+  p.hp = Math.min(s.maxHp, p.hp + hpGain); p.mp = Math.min(s.maxMp, p.mp + mpGain);
+  const lines = [pick(c.lines)];
+  if (risk) {
+    const loss = Math.round(s.maxHp * risk.hpLoss); p.hp = Math.max(1, p.hp - loss);
+    lines.push(`⚠️ **${risk.name}!** ${risk.text} (−${fmt(loss)} HP)`);
+    for (const [id, a, b] of risk.extra) { const n = rand(a, b); addItem(p, id, n); out.push(`${label(id)} x${n}`); }
+  }
+  // kinh nghiệm
+  let ups = 0, expTxt;
+  if (atBottleneck(p)) expTxt = '⚡ Đã chạm bình cảnh – không nhận thêm EXP, hãy dùng /dokiep!';
+  else { ups = gainExp(p, exp); expTxt = `✨ +${fmt(exp)} EXP (tốc độ ×${(speed * (risk ? risk.expMul : 1)).toFixed(2)})`; }
+  // vật phẩm rơi
+  if (Math.random() < c.drop[0] + (fac === 'tieudao' ? 0.1 : 0)) {
+    const [id, a, b] = pick(c.drop[1]), n = rand(a, b);
+    if (n > 0) {
+      if (id === '__gold') { const g = Math.round(n * (1 + p.level / 10) * goldMul(p)); p.gold += g; out.push(`💰 ${fmt(g)} vàng`); }
+      else { addItem(p, id, n); out.push(`${label(id)} x${n}`); }
+    }
+  }
+  // thanh năng lượng riêng của phái
+  p.cult.m += c.meter[1] + (fac === 'ma' ? 2 : 0); p.cult.n++;
+  let mile = null;
+  if (p.cult.m >= 100) {
+    p.cult.m -= 100; mile = c.mile;
+    const given = [];
+    for (const [id, n] of c.mile.give) {
+      if (id === '__gold') { const g = Math.round(n * (1 + p.level / 10)); p.gold += g; given.push(`💰 ${fmt(g)} vàng`); }
+      else { addItem(p, id, n); given.push(`${label(id)} x${n}`); }
+    }
+    let petTxt = '';
+    if (c.mile.pet && p.pets?.[c.mile.pet] && p.pets[c.mile.pet].star < 5) { p.pets[c.mile.pet].star++; petTxt = `\n${PETS[c.mile.pet].emoji} **${PETS[c.mile.pet].name}** lên **${p.pets[c.mile.pet].star}⭐**!`; }
+    lines.push(`🌟 **${c.meter[0]} viên mãn!** ${c.mile.text}\n🎁 ${given.join(' • ')}${petTxt}`);
+  }
+  return { ok: true, c, lines, notes, out, expTxt, ups, hpGain, mpGain, risk: !!risk, mile: !!mile, speed };
+}
+function cultEmbed(p, r) {
+  const c = r.c, s = stats(p);
+  const e = embed(r.risk ? 0xc0392b : r.mile ? 0xf1c40f : c.risk ? 0x8e44ad : 0x16a085).setTitle(`${c.emoji} ${c.tech} • ${CLASSES[p.cls].name}`)
+    .setDescription(`${r.lines.join('\n\n')}\n\n${r.expTxt}${r.ups ? `\n🎉 **LÊN CẤP ${p.level}!**` : ''}\n❤️ +${fmt(r.hpGain)} (${fmt(p.hp)}/${fmt(s.maxHp)}) • 🔷 +${fmt(r.mpGain)} (${fmt(p.mp)}/${fmt(s.maxMp)})${r.out.length ? `\n🎁 ${r.out.join(' • ')}` : ''}\n\n${c.meter[0]}: ${bar(p.cult.m, 100)} ${p.cult.m}/100 • đã tu luyện ${fmt(p.cult.n)} lần${r.notes.length ? `\n${r.notes.join('\n')}` : ''}`);
+  return e;
+}
+
 /* ═══════════════════════════ ĐỊNH NGHĨA LỆNH ═══════════════════════════ */
 const itemOpt = (o, desc = 'Chọn vật phẩm', req = true) => o.setName('vatpham').setDescription(desc).setRequired(req).setAutocomplete(true);
 const qtyOpt = (o) => o.setName('soluong').setDescription('Số lượng (mặc định 1)').setMinValue(1).setMaxValue(99);
@@ -2308,7 +2430,7 @@ const commands = [
     .addStringOption((o) => o.setName('khu_vuc').setDescription('Chọn nơi săn').setRequired(true)
       .addChoices(...Object.entries(MAPS).map(([value, m]) => ({ name: `${m.emoji} ${m.name} (Lv ${m.lv}+)`, value })))),
   new SlashCommandBuilder().setName('diemdanh').setDescription('🗓️ Điểm danh nhận quà hằng ngày'),
-  new SlashCommandBuilder().setName('toathien').setDescription('🧘 Tọa thiền hồi phục (hồi chiêu 10 phút)'),
+  new SlashCommandBuilder().setName('tuluyen').setDescription('🧘 Tu luyện: mỗi phái một công pháp riêng (hồi chiêu 30 giây)'),
   new SlashCommandBuilder().setName('nhiemvu').setDescription('📋 Nhiệm vụ theo phái và cảnh giới: nhận, xem, nộp')
     .addStringOption((o) => o.setName('hanh_dong').setDescription('Hành động khác').addChoices({ name: 'Đổi nhiệm vụ (tốn vàng)', value: 'doi' })),
   new SlashCommandBuilder().setName('bxh').setDescription('🏆 Bảng xếp hạng đạo sĩ')
@@ -2402,6 +2524,7 @@ function profileEmbed(p, user) {
       { name: '⚖️ Phe', value: p.fac ? `${FACTIONS[p.fac].emoji} ${FACTIONS[p.fac].name}${leadingFaction() === p.fac ? ' 👑' : ''}` : '*chưa chọn (`/phe chon`)*', inline: true },
       { name: '👑 VIP', value: vipLevel(p) ? `VIP ${vipLevel(p)} (${fmt(p.vipPts)} điểm)` : 'Thường', inline: true },
       { name: '💎 Nguyên Bảo', value: fmt(p.nb), inline: true },
+      { name: '🧘 Tu luyện', value: `${CULT[p.cls].emoji} ${CULT[p.cls].tech}\n${CULT[p.cls].meter[0]} ${p.cult?.m || 0}/100 • ${fmt(p.cult?.n || 0)} lần`, inline: true },
       { name: '🎫 Tiền tệ khác', value: `🥇 ${fmt(p.vd)} Vinh Dự • 🗼 ${fmt(p.tl)} Tháp Lệnh • 🏯 ${fmt(p.gp)} Cống Hiến`, inline: false },
       { name: '🎽 Trang bị', value: eq, inline: false },
     );
@@ -2608,19 +2731,13 @@ const handlers = {
     return i.reply({ embeds: [embed(0x1abc9c).setTitle(`🗓️ Điểm danh ngày ${p.streak}`).setDescription(lines.join('\n'))] });
   },
 
-  async toathien(i) {
+  async tuluyen(i) {
     const p = getPlayer(i); if (!p) return;
     if (inFight(i)) return busy(i);
-    const wait = meditateCd(p) - (Date.now() - p.lastMeditate);
-    if (wait > 0) return i.reply({ content: `🧘 Tâm chưa tĩnh. Hãy đợi **${Math.ceil(wait / 60000)} phút** nữa.`, flags: EPH });
-    const s = stats(p);
-    p.hp = Math.min(s.maxHp, p.hp + Math.round(s.maxHp * 0.6));
-    p.mp = Math.min(s.maxMp, p.mp + Math.round(s.maxMp * 0.6));
-    p.lastMeditate = Date.now();
-    const exp = 10 + p.level * 3;
-    const up = gainExp(p, exp);
+    const r = cultivate(p);
+    if (!r.ok) return i.reply({ content: r.msg, flags: EPH });
     save();
-    return i.reply({ content: `🧘 Bạn nhập định, khí huyết lưu chuyển...\n❤️ ${fmt(p.hp)}/${fmt(s.maxHp)} • 🔷 ${fmt(p.mp)}/${fmt(s.maxMp)} • ✨ +${exp} EXP${up ? `\n🎉 **LÊN CẤP ${p.level}!**` : ''}` });
+    return i.reply({ embeds: [cultEmbed(p, r)] });
   },
 
   async nhiemvu(i) {
@@ -2899,7 +3016,8 @@ const handlers = {
         '**Khảm ngọc:** `/khamngoc` – mỗi trang bị có 1–3 ô khảm. Ngọc rơi từ yêu ma, bán ở tiệm, gộp 3 → 1 bằng `/chetao`.',
         '**Võ đài:** `/thachdau @người [cược]` – đấu tự động, không mất HP/đồ, thắng nhận danh vọng (`/bxh loai:Danh vọng`).',
         '**Chế tạo:** `/chetao` – nguyên liệu rớt từ yêu ma (Lôi Thạch, Huyết Ngọc...) để chế đồ bậc cao.',
-        '**Hằng ngày:** `/diemdanh`, `/nhiemvu`, `/toathien`. Xếp hạng: `/bxh`.',
+        '**Tu luyện:** `/tuluyen` (hồi chiêu 30 giây) – mỗi phái một công pháp, tốc độ và phần thưởng khác nhau; Ngự Thi Sư (cương thi) và Quỷ Đạo Sư (ma) có thêm rủi ro và mốc thưởng riêng.',
+        '**Hằng ngày:** `/diemdanh`, `/nhiemvu`. Xếp hạng: `/bxh`.',
         '', '**Khu vực săn:**', mapList,
       ].join('\n'))] });
   },
@@ -3111,4 +3229,4 @@ async function main() {
 }
 
 if (process.env.DAOSI_TEST !== '1') main();
-module.exports = { commands, ITEMS, RECIPES, GEAR, CLASSES, MAPS, newPlayer, stats, perks, beginFight, act, fightView, enhanceAttempt, enhView, shopView, simKiep, kiepView, gainExp, migrate, buy, fights, capOf, atBottleneck, expNeed, ENH_RATE, handlers, PETS, summonOnce, simulateDuel, gemView, gemStats, socketsOf, petScale, petView, ACH, checkAch, titleBonus, beginTower, towerMonster, wbSync, wbSpawn, wbAttack, settleWb, db, guildCreate, guildJoin, guildLeave, guildDonate, guildBonus, marketPost, marketBuy, marketCancel, marketSync, randomEvent, achView, wbView, marketView, profileEmbed, resultView, genQuest, questProg, questEmbed, claimQuest, QTYPES, CLASS_QUEST, REALM_REWARD, dailyN, enhMul, protId, luckBonus, ENH_MAX, ENH_HIGH, enhGold, enhStones, lightningChance, breakChance, doEnhance, openBox, buffVal, BUFF_NAME, skillMult, sklUp, sklView, sklCost, sklLv, SKL_MAX, handleAuto, handleButton, handleSelect, AFFIX, affReroll, affView, affSlots, extraTotals, GRADE_Q, GRADE_NEED, gradeAttempt, gradeView, TECHS, techUp, techView, techCost, PET_EVO, petEvolve, SHOP_DEFS, shopOffers, buyOffer, tiemView, BM_POOL, passiveText, gradeOf, FACTIONS, FAC_GEAR, VIP_SHOP, VIP_PERK, VIP_STEPS, vipLevel, vipBuy, vipShopView, vipEmbed, facView, leadingFaction, fpSync, expMul, goldMul, priceFor, backup, listBackups, saveNow, writeDb, DB_FILE, BACKUP_DIR, loadDb, isAdmin, CLASS_GEAR_MOD, GEM_KINDS };
+module.exports = { commands, ITEMS, RECIPES, GEAR, CLASSES, MAPS, newPlayer, stats, perks, beginFight, act, fightView, enhanceAttempt, enhView, shopView, simKiep, kiepView, gainExp, migrate, buy, fights, capOf, atBottleneck, expNeed, ENH_RATE, handlers, PETS, summonOnce, simulateDuel, gemView, gemStats, socketsOf, petScale, petView, ACH, checkAch, titleBonus, beginTower, towerMonster, wbSync, wbSpawn, wbAttack, settleWb, db, guildCreate, guildJoin, guildLeave, guildDonate, guildBonus, marketPost, marketBuy, marketCancel, marketSync, randomEvent, achView, wbView, marketView, profileEmbed, resultView, cultivate, cultEmbed, CULT, meditateCd, genQuest, questProg, questEmbed, claimQuest, QTYPES, CLASS_QUEST, REALM_REWARD, dailyN, enhMul, protId, luckBonus, ENH_MAX, ENH_HIGH, enhGold, enhStones, lightningChance, breakChance, doEnhance, openBox, buffVal, BUFF_NAME, skillMult, sklUp, sklView, sklCost, sklLv, SKL_MAX, handleAuto, handleButton, handleSelect, AFFIX, affReroll, affView, affSlots, extraTotals, GRADE_Q, GRADE_NEED, gradeAttempt, gradeView, TECHS, techUp, techView, techCost, PET_EVO, petEvolve, SHOP_DEFS, shopOffers, buyOffer, tiemView, BM_POOL, passiveText, gradeOf, FACTIONS, FAC_GEAR, VIP_SHOP, VIP_PERK, VIP_STEPS, vipLevel, vipBuy, vipShopView, vipEmbed, facView, leadingFaction, fpSync, expMul, goldMul, priceFor, backup, listBackups, saveNow, writeDb, DB_FILE, BACKUP_DIR, loadDb, isAdmin, CLASS_GEAR_MOD, GEM_KINDS };
