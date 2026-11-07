@@ -1,4 +1,4 @@
-// ☯️ ĐẠO SĨ BOT v4.9 – Bot RPG Discord lấy cảm hứng từ phim "Cương Thi Tiên Sinh"
+// ☯️ ĐẠO SĨ BOT v5.0 – Bot RPG Discord lấy cảm hứng từ phim "Cương Thi Tiên Sinh"
 // Nhân vật: 18 môn phái, 3 phe, VIP/Nguyên Bảo • Đồ: riêng từng phái, pháp bảo, bùa, lệnh bài phe
 // Nâng cấp: cường hóa +20 (sét đánh, cấp Thiên), luyện tuyệt kỹ, thăng phẩm, tinh luyện, khảm ngọc, công pháp, độ thiên kiếp, tiến hóa đệ tử
 // Hoạt động: săn 6 khu vực, Trấn Yêu Tháp, boss thế giới, võ đài PvP, tông môn, chợ, 16 cửa hàng, rương, bùa phúc, nhiệm vụ theo phái & cảnh giới, thành tựu
@@ -24,6 +24,18 @@ const bar = (c, m, len = 10) => {
   const f = Math.max(0, Math.min(len, Math.round((c / m) * len)));
   return '▰'.repeat(f) + '▱'.repeat(len - f);
 };
+// ── UI kit: thanh màu, đường kẻ, trích dẫn, huy hiệu ──
+const BAR_FILL = { hp: (r) => (r > 0.6 ? '🟩' : r > 0.3 ? '🟨' : '🟥'), mp: () => '🟦', exp: () => '🟪', foe: () => '🟥', gen: () => '🟩', gold: () => '🟨' };
+function cbar(cur, max, len = 10, kind = 'gen') {
+  const r = max > 0 ? Math.max(0, Math.min(1, cur / max)) : 0;
+  const f = Math.round(r * len);
+  return BAR_FILL[kind](r).repeat(f) + '⬛'.repeat(len - f);
+}
+const HR = '▬▬▬▬▬▬▬▬▬▬▬▬▬▬';
+const quote = (lines) => lines.flatMap((l) => String(l).split('\n')).filter((l) => l.trim()).map((l) => `> ${l}`).join('\n');
+const chips = (arr) => arr.filter(Boolean).map((x) => `\`${x}\``).join(' ');
+const CLASS_COLORS = [0xe74c3c, 0x9b59b6, 0xe67e22, 0xf1c40f, 0x2ecc71, 0x1abc9c, 0x3498db, 0xd35400, 0x16a085, 0x8e44ad, 0xc0392b, 0x27ae60, 0x2980b9, 0xf39c12, 0xe84393, 0x00cec9, 0x6c5ce7, 0xfd79a8];
+const classColor = (cls) => CLASS_COLORS[Math.max(0, Object.keys(CLASSES).indexOf(cls)) % CLASS_COLORS.length];
 const norm = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').toLowerCase();
 const row = (...c) => new ActionRowBuilder().addComponents(...c);
 
@@ -872,22 +884,25 @@ function fightView(uid, p, f) {
     menu.setPlaceholder('🎒 Không có đan/phù để dùng').setDisabled(true).addOptions({ label: 'Trống', value: 'none' });
   }
 
-  const status = [f.stun > 0 ? '💫' : '', f.burn?.t > 0 ? '🔥' : ''].join('');
-  const e = embed(f.boss ? 0xf1c40f : 0xc0392b)
-    .setTitle(`${f.boss ? '👑 BOSS • ' : ''}${m.emoji} ${m.name} ${status}`)
-    .setDescription(f.log.join('\n'))
+  const hpr = Math.max(0, p.hp) / s.maxHp;
+  const col = f.boss ? 0xf1c40f : hpr > 0.6 ? 0x2ecc71 : hpr > 0.3 ? 0xe67e22 : 0xe74c3c;
+  const foeStatus = chips([f.stun > 0 && '💫 Choáng', f.burn?.t > 0 && `🔥 Cháy ${f.burn.t}`, f.curse?.t > 0 && `☠️ Yếu ${f.curse.t}`]);
+  const meStatus = chips([f.shield?.t > 0 && `🛡️ Khiên ${f.shield.t}`, buffVal(p, 'thikhi') && '🧟 Thi Khí', buffVal(p, 'makhi') && '👺 Ma Khí', buffVal(p, 'cokhi') && '🐛 Cổ Khí', buffVal(p, 'hoakhi') && '🔥 Hỏa Khí', buffVal(p, 'bangkhi') && '❄️ Băng Khí', buffVal(p, 'lienkhi') && '🌸 Liên Hoa', buffVal(p, 'kimkhi') && '🧘 Kim Cang', buffVal(p, 'duockhi') && '🌿 Dược Lực', buffVal(p, 'hokhi') && '🥋 Hổ Khí']);
+  const pet = p.pet && p.pets[p.pet] ? `\n${PETS[p.pet].emoji} ${PETS[p.pet].name} ${'⭐'.repeat(p.pets[p.pet].star)}` : '';
+  const e = embed(col).setTitle(`${f.boss ? '👑 ' : '⚔️ '}${mapLabel(f)}  •  Lượt ${f.turn}`)
+    .setDescription(quote(f.log) || '*…*')
     .addFields(
-      { name: `Yêu ma • ${mapLabel(f)}`, value: `${bar(f.mHp, m.hp)} ${fmt(Math.max(0, f.mHp))}/${fmt(m.hp)} HP`, inline: false },
-      { name: `${p.name}${p.pet && p.pets[p.pet] ? ` & ${PETS[p.pet].emoji}${PETS[p.pet].name}` : ''} • Lượt ${f.turn} ${f.shield?.t > 0 ? '🛡️' : ''}`, value: `❤️ ${bar(p.hp, s.maxHp)} ${fmt(p.hp)}/${fmt(s.maxHp)}\n🔷 ${bar(p.mp, s.maxMp)} ${fmt(p.mp)}/${fmt(s.maxMp)}`, inline: false },
+      { name: `${f.boss && m.emoji !== '👑' ? '👑 ' : ''}${m.emoji} ${m.name}`, value: `${cbar(f.mHp, m.hp, 8, 'foe')}\n\`${fmt(Math.max(0, f.mHp))}/${fmt(m.hp)}\` HP${foeStatus ? `\n${foeStatus}` : ''}`, inline: true },
+      { name: `${cls.emoji} ${p.name}`, value: `❤️ ${cbar(p.hp, s.maxHp, 8, 'hp')}\n\`${fmt(p.hp)}/${fmt(s.maxHp)}\`\n🔷 ${cbar(p.mp, s.maxMp, 8, 'mp')}\n\`${fmt(p.mp)}/${fmt(s.maxMp)}\`${pet}${meStatus ? `\n${meStatus}` : ''}`, inline: true },
     );
   return { content: '', embeds: [e], components: [row1, row(menu)] };
 }
 
 function resultView(uid, p, f) {
   let e;
-  if (f.over === 'win') e = embed(0x2ecc71).setTitle(`🏆 Hạ gục ${f.m.emoji} ${f.m.name}!`).setDescription(`${f.log.join('\n')}\n\n${f.rewards}`);
-  else if (f.over === 'lose') e = embed(0x7f8c8d).setTitle('💀 Bạn đã bại trận').setDescription(`${f.log.join('\n')}\n\n${f.rewards}`);
-  else e = embed(0x3498db).setTitle('🏃 Thoát thân!').setDescription(f.log.join('\n'));
+  if (f.over === 'win') e = embed(0x2ecc71).setTitle(`🏆 CHIẾN THẮNG  •  ${f.m.emoji} ${f.m.name}`).setDescription(`${quote(f.log)}\n\n${HR}\n**🎁 Thu hoạch**\n${f.rewards}`);
+  else if (f.over === 'lose') e = embed(0x7f8c8d).setTitle('💀 BẠI TRẬN').setDescription(`${quote(f.log)}\n\n${HR}\n${f.rewards}`);
+  else e = embed(0x3498db).setTitle('🏃 THOÁT THÂN').setDescription(quote(f.log));
   const comps = f.over === 'lose' ? [] : [row(new ButtonBuilder().setCustomId(`again:${f.map}:${uid}`).setLabel('Săn tiếp').setEmoji('🔁').setStyle(ButtonStyle.Success))];
   return { content: '', embeds: [e], components: comps };
 }
@@ -2421,8 +2436,16 @@ function cultivate(p) {
 }
 function cultEmbed(p, r) {
   const c = r.c, s = stats(p);
-  const e = embed(r.risk ? 0xc0392b : r.mile ? 0xf1c40f : c.risk ? 0x8e44ad : 0x16a085).setTitle(`${c.emoji} ${c.tech} • ${CLASSES[p.cls].name}`)
-    .setDescription(`${r.lines.join('\n\n')}\n\n${r.expTxt}${r.ups ? `\n🎉 **LÊN CẤP ${p.level}!**` : ''}\n❤️ +${fmt(r.hpGain)} (${fmt(p.hp)}/${fmt(s.maxHp)}) • 🔷 +${fmt(r.mpGain)} (${fmt(p.mp)}/${fmt(s.maxMp)})${r.out.length ? `\n🎁 ${r.out.join(' • ')}` : ''}\n\n${c.meter[0]}: ${bar(p.cult.m, 100)} ${p.cult.m}/100 • đã tu luyện ${fmt(p.cult.n)} lần${r.notes.length ? `\n${r.notes.join('\n')}` : ''}`);
+  const harvest = [r.expTxt, `❤️ +${fmt(r.hpGain)}  ${cbar(p.hp, s.maxHp, 8, 'hp')} \`${fmt(p.hp)}/${fmt(s.maxHp)}\``, `🔷 +${fmt(r.mpGain)}  ${cbar(p.mp, s.maxMp, 8, 'mp')} \`${fmt(p.mp)}/${fmt(s.maxMp)}\``];
+  if (r.ups) harvest.unshift(`🎉 **LÊN CẤP ${p.level}!**`);
+  if (r.out.length) harvest.push(`🎁 ${r.out.join(' • ')}`);
+  const e = embed(r.risk ? 0xc0392b : r.mile ? 0xf1c40f : c.risk ? 0x8e44ad : classColor(p.cls)).setTitle(`${c.emoji} ${c.tech}`)
+    .setDescription(`**${CLASSES[p.cls].name}** • ${REALMS[p.realm]} cấp ${p.level}\n${HR}\n${quote(r.lines)}`)
+    .addFields(
+      { name: '📈 Thu hoạch', value: harvest.join('\n'), inline: false },
+      { name: `${c.meter[0]}`, value: `${cbar(p.cult.m, 100, 12, 'gen')}  **${p.cult.m}**/100\nĐã tu luyện **${fmt(p.cult.n)}** lần`, inline: false },
+    );
+  if (r.notes.length) e.addFields({ name: '📝 Ghi chú', value: r.notes.join('\n'), inline: false });
   return e;
 }
 
@@ -2532,36 +2555,32 @@ const inFight = (i) => fights.has(i.user.id);
 const busy = (i) => i.reply({ content: '⚔️ Bạn đang trong trận chiến! Hãy kết thúc trận đấu trước (dùng `/sanquy` để quay lại).', flags: EPH });
 
 function profileEmbed(p, user) {
-  const s = stats(p), c = CLASSES[p.cls], pk = perks(p), need = expNeed(p.level);
+  const s = stats(p), c = CLASSES[p.cls], pk = perks(p), need = expNeed(p.level), cap = capOf(p), vip = vipLevel(p), bott = atBottleneck(p), cu = CULT[p.cls];
+  const fac = p.fac ? `${FACTIONS[p.fac].emoji} ${FACTIONS[p.fac].name}${leadingFaction() === p.fac ? ' 👑' : ''}` : '*chưa chọn*';
+  const guild = p.guild && db.guilds[p.guild] ? `${db.guilds[p.guild].name} (Lv${db.guilds[p.guild].lv})` : '*chưa có*';
+  const pet = p.pet && p.pets[p.pet] ? `${PETS[p.pet].emoji} ${PETS[p.pet].name} ${'⭐'.repeat(p.pets[p.pet].star)}` : '*chưa có*';
   const eq = Object.entries(SLOT_NAME).map(([slot, nm]) => `${nm}: ${p.equip[slot] ? dname(p, p.equip[slot]) + gemIcons(p, p.equip[slot]) : '*trống*'}`).join('\n');
   const pkLines = Object.entries(pk).filter(([, v]) => v > 0).map(([k, v]) => PERK_TEXT[k](v)).join(' • ');
-  const cap = capOf(p);
-  const e = embed(0xf1c40f)
-    .setTitle(`${c.emoji} ${p.name}${vipLevel(p) ? ` 👑VIP${vipLevel(p)}` : ''}${titleName(p) ? ` 「${titleName(p)}」` : ''} • ${c.name}`)
-    .setThumbnail(user.displayAvatarURL())
+  const head = [titleName(p) ? `「${titleName(p)}」` : null, c.name, vip ? `👑 VIP ${vip}` : null].filter(Boolean).join(' • ');
+  const e = embed(classColor(p.cls)).setTitle(`${c.emoji} ${p.name}`).setThumbnail(user.displayAvatarURL())
+    .setDescription([
+      `**${head}**`, HR,
+      `🌌 **${REALMS[p.realm]}** • Cấp **${p.level}**/${cap}${bott ? '  ⚡ *chạm bình cảnh – dùng /dokiep*' : ''}`,
+      `✨ ${cbar(p.exp, need, 10, 'exp')} ${Math.floor((p.exp / need) * 100)}% \`${fmt(p.exp)}/${fmt(need)}\``,
+      `❤️ ${cbar(p.hp, s.maxHp, 10, 'hp')} \`${fmt(p.hp)}/${fmt(s.maxHp)}\``,
+      `🔷 ${cbar(p.mp, s.maxMp, 10, 'mp')} \`${fmt(p.mp)}/${fmt(s.maxMp)}\``,
+    ].join('\n'))
     .addFields(
-      { name: '🌌 Cảnh giới', value: `**${REALMS[p.realm]}** • Cấp **${p.level}/${cap}**\n${bar(p.exp, need)} ${fmt(p.exp)}/${fmt(need)}${atBottleneck(p) ? '\n⚡ **Đã chạm bình cảnh – dùng `/dokiep`!**' : ''}`, inline: false },
-      { name: '❤️ HP', value: `${fmt(p.hp)}/${fmt(s.maxHp)}`, inline: true },
-      { name: '🔷 Linh lực', value: `${fmt(p.mp)}/${fmt(s.maxMp)}`, inline: true },
-      { name: '💰 Vàng', value: fmt(p.gold), inline: true },
-      { name: '⚔️ Công', value: `${s.atk}`, inline: true },
-      { name: '🛡️ Thủ', value: `${s.def}`, inline: true },
-      { name: '🌩️ Độ kiếp', value: `${p.kiepDone} lần`, inline: true },
-      { name: '🏅 Danh vọng', value: `${p.honor}`, inline: true },
-      { name: '🧑‍🤝‍🧑 Đệ tử', value: p.pet && p.pets[p.pet] ? `${PETS[p.pet].emoji} ${PETS[p.pet].name} ${'⭐'.repeat(p.pets[p.pet].star)}` : '*chưa có*', inline: true },
-      { name: '🏯 Tông môn', value: p.guild && db.guilds[p.guild] ? `${db.guilds[p.guild].name} (Lv${db.guilds[p.guild].lv})` : '*chưa có*', inline: true },
-      { name: '🗼 Trấn Yêu Tháp', value: `Tầng ${p.towerBest}`, inline: true },
-      { name: '⚖️ Phe', value: p.fac ? `${FACTIONS[p.fac].emoji} ${FACTIONS[p.fac].name}${leadingFaction() === p.fac ? ' 👑' : ''}` : '*chưa chọn (`/phe chon`)*', inline: true },
-      { name: '👑 VIP', value: vipLevel(p) ? `VIP ${vipLevel(p)} (${fmt(p.vipPts)} điểm)` : 'Thường', inline: true },
-      { name: '💎 Nguyên Bảo', value: fmt(p.nb), inline: true },
-      { name: '🧘 Tu luyện', value: `${CULT[p.cls].emoji} ${CULT[p.cls].tech}\n${CULT[p.cls].meter[0]} ${p.cult?.m || 0}/100 • ${fmt(p.cult?.n || 0)} lần`, inline: true },
-      { name: '🎫 Tiền tệ khác', value: `🥇 ${fmt(p.vd)} Vinh Dự • 🗼 ${fmt(p.tl)} Tháp Lệnh • 🏯 ${fmt(p.gp)} Cống Hiến`, inline: false },
+      { name: '⚔️ Chiến lực', value: `Công **${fmt(s.atk)}**\nThủ **${fmt(s.def)}**\nChí mạng **${pct(0.15 + pk.crit)}**\nNé **${pct(pk.dodge)}**`, inline: true },
+      { name: '💰 Tài sản', value: `🪙 **${fmt(p.gold)}**\n💎 **${fmt(p.nb)}** Nguyên Bảo\n🥇 ${fmt(p.vd)} • 🗼 ${fmt(p.tl)} • 🏯 ${fmt(p.gp)}`, inline: true },
+      { name: `🧘 ${cu.tech}`, value: `${cu.emoji} ${cu.meter[0]}\n${cbar(p.cult?.m || 0, 100, 8, 'gen')} **${p.cult?.m || 0}**/100\n${fmt(p.cult?.n || 0)} lần tu luyện`, inline: true },
+      { name: '🤝 Quan hệ & thành tích', value: [`⚖️ Phe: ${fac}`, `🏯 Tông môn: ${guild}`, `🧑‍🤝‍🧑 Đệ tử: ${pet}`, `🏅 Danh vọng **${fmt(p.honor)}** • 🗼 Tháp tầng **${p.towerBest}** • 🌩️ Độ kiếp **${p.kiepDone}** lần`].join('\n'), inline: false },
       { name: '🎽 Trang bị', value: eq, inline: false },
     );
   if (pkLines) e.addFields({ name: '🔱 Hiệu ứng pháp bảo', value: pkLines, inline: false });
   const bf = Object.entries(p.buffs || {}).filter(([, b]) => b.until > Date.now()).map(([k, b]) => `${BUFF_NAME[k]} +${pct(b.v)} (<t:${Math.floor(b.until / 1000)}:R>)`);
-  if (bf.length) e.addFields({ name: '✨ Bùa phúc đang chạy', value: bf.join(' • '), inline: false });
-  e.addFields({ name: '📊 Chiến tích', value: `Yêu ma đã diệt: **${fmt(p.kills)}** • Boss: **${p.bossKills}** • Bại trận: **${p.deaths}**`, inline: false });
+  if (bf.length) e.addFields({ name: '✨ Bùa phúc & trạng thái đang chạy', value: bf.join('\n'), inline: false });
+  e.addFields({ name: '📊 Chiến tích', value: `Yêu ma đã diệt **${fmt(p.kills)}** • Boss **${p.bossKills}** • Bại trận **${p.deaths}**${vip ? ` • VIP **${fmt(p.vipPts)}** điểm` : ''}`, inline: false });
   return e;
 }
 
@@ -3200,7 +3219,7 @@ async function handleSelect(i) {
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 client.once(Events.ClientReady, async (c) => {
-  console.log(`☯️ Đạo Sĩ Bot v4.9 đã sẵn sàng: ${c.user.tag}`);
+  console.log(`☯️ Đạo Sĩ Bot v5.0 đã sẵn sàng: ${c.user.tag}`);
   const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
   try {
     const route = process.env.GUILD_ID
@@ -3260,4 +3279,4 @@ async function main() {
 }
 
 if (process.env.DAOSI_TEST !== '1') main();
-module.exports = { commands, ITEMS, RECIPES, GEAR, CLASSES, MAPS, newPlayer, stats, perks, beginFight, act, fightView, enhanceAttempt, enhView, shopView, simKiep, kiepView, gainExp, migrate, buy, fights, capOf, atBottleneck, expNeed, ENH_RATE, handlers, PETS, summonOnce, simulateDuel, gemView, gemStats, socketsOf, petScale, petView, ACH, checkAch, titleBonus, beginTower, towerMonster, wbSync, wbSpawn, wbAttack, settleWb, db, guildCreate, guildJoin, guildLeave, guildDonate, guildBonus, marketPost, marketBuy, marketCancel, marketSync, randomEvent, achView, wbView, marketView, profileEmbed, resultView, cultivate, cultEmbed, CULT, meditateCd, CULT_BUFF, CULT_BUFF_MIN, burnBonus, burnExtraTurns, stunBonus, curseMul, shieldMul, healBonus, genQuest, questProg, questEmbed, claimQuest, QTYPES, CLASS_QUEST, REALM_REWARD, dailyN, enhMul, protId, luckBonus, ENH_MAX, ENH_HIGH, enhGold, enhStones, lightningChance, breakChance, doEnhance, openBox, buffVal, BUFF_NAME, skillMult, sklUp, sklView, sklCost, sklLv, SKL_MAX, handleAuto, handleButton, handleSelect, AFFIX, affReroll, affView, affSlots, extraTotals, GRADE_Q, GRADE_NEED, gradeAttempt, gradeView, TECHS, techUp, techView, techCost, PET_EVO, petEvolve, SHOP_DEFS, shopOffers, buyOffer, tiemView, BM_POOL, passiveText, gradeOf, FACTIONS, FAC_GEAR, VIP_SHOP, VIP_PERK, VIP_STEPS, vipLevel, vipBuy, vipShopView, vipEmbed, facView, leadingFaction, fpSync, expMul, goldMul, priceFor, backup, listBackups, saveNow, writeDb, DB_FILE, BACKUP_DIR, loadDb, isAdmin, CLASS_GEAR_MOD, GEM_KINDS };
+module.exports = { cbar, quote, chips, HR, classColor, commands, ITEMS, RECIPES, GEAR, CLASSES, MAPS, newPlayer, stats, perks, beginFight, act, fightView, enhanceAttempt, enhView, shopView, simKiep, kiepView, gainExp, migrate, buy, fights, capOf, atBottleneck, expNeed, ENH_RATE, handlers, PETS, summonOnce, simulateDuel, gemView, gemStats, socketsOf, petScale, petView, ACH, checkAch, titleBonus, beginTower, towerMonster, wbSync, wbSpawn, wbAttack, settleWb, db, guildCreate, guildJoin, guildLeave, guildDonate, guildBonus, marketPost, marketBuy, marketCancel, marketSync, randomEvent, achView, wbView, marketView, profileEmbed, resultView, cultivate, cultEmbed, CULT, meditateCd, CULT_BUFF, CULT_BUFF_MIN, burnBonus, burnExtraTurns, stunBonus, curseMul, shieldMul, healBonus, genQuest, questProg, questEmbed, claimQuest, QTYPES, CLASS_QUEST, REALM_REWARD, dailyN, enhMul, protId, luckBonus, ENH_MAX, ENH_HIGH, enhGold, enhStones, lightningChance, breakChance, doEnhance, openBox, buffVal, BUFF_NAME, skillMult, sklUp, sklView, sklCost, sklLv, SKL_MAX, handleAuto, handleButton, handleSelect, AFFIX, affReroll, affView, affSlots, extraTotals, GRADE_Q, GRADE_NEED, gradeAttempt, gradeView, TECHS, techUp, techView, techCost, PET_EVO, petEvolve, SHOP_DEFS, shopOffers, buyOffer, tiemView, BM_POOL, passiveText, gradeOf, FACTIONS, FAC_GEAR, VIP_SHOP, VIP_PERK, VIP_STEPS, vipLevel, vipBuy, vipShopView, vipEmbed, facView, leadingFaction, fpSync, expMul, goldMul, priceFor, backup, listBackups, saveNow, writeDb, DB_FILE, BACKUP_DIR, loadDb, isAdmin, CLASS_GEAR_MOD, GEM_KINDS };
